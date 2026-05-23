@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Cantonese Pronunciation for {{ characters }}</h1>
+<p class="jyutping"><strong>{{ jyutping }}</strong></p>
+{% if audio_url %}
+<div class="audio-player">
+  <audio controls>
+    <source src="/sessions/{{ session_id }}/audio" type="audio/ogg">
+    Your browser does not support audio playback.
+  </audio>
+</div>
+<p>
+  <button type="button"
+          hx-post="/audio/{{ session_id }}"
+          hx-vals='{"source":"wiktionary"}'
+          hx-target="#result"
+          hx-on::after-request="JSON.parse(event.detail.xhr.response).completed && window.location.href='/complete/{{ session_id }}'">Confirm</button>
+</p>
+{% else %}
+<div class="no-audio">
+  <p>No audio available for this character.</p>
+</div>
+{% endif %}
+
+<!-- Recording section -->
+<div id="recording-section" class="recording-section">
+  <h2>Record your own pronunciation</h2>
+  <p>
+    <button type="button"
+            id="record-btn"
+            onclick="startRecording()">Record</button>
+    <button type="button"
+            id="stop-btn"
+            onclick="stopRecording()"
+            disabled>Stop</button>
+  </p>
+  <p id="recording-status" style="display:none;">Recording...</p>
+</div>
+
+<!-- Recording preview (hidden until recording submitted) -->
+<div id="recording-preview" style="display:none;">
+  <h2>Preview your recording</h2>
+  <audio id="preview-audio" controls>
+    <source src="/sessions/{{ session_id }}/recording" type="audio/webm">
+  </audio>
+  <p>
+    <button type="button"
+            hx-post="/audio/{{ session_id }}"
+            hx-vals='{"source":"recording"}'
+            hx-target="#result"
+            hx-on::after-request="JSON.parse(event.detail.xhr.response).completed && window.location.href='/complete/{{ session_id }}'"
+            id="confirm-recording-btn">Confirm</button>
+    <button type="button"
+            onclick="reRecord()"
+            id="rerecord-btn">Re-record</button>
+  </p>
+</div>
+
+<p><a href="/sessions/{{ session_id }}/skip">Skip this word</a></p>
+<div id="result"></div>
+
+<script>
+var mediaRecorder = null;
+var audioChunks = [];
+
+function startRecording() {
+  navigator.mediaDevices.getUserMedia({ audio: true })
+    .then(function(stream) {
+      mediaRecorder = new MediaRecorder(stream);
+      audioChunks = [];
+      mediaRecorder.ondataavailable = function(e) {
+        audioChunks.push(e.data);
+      };
+      mediaRecorder.onstop = function() {
+        var blob = new Blob(audioChunks, { type: 'audio/webm' });
+        var reader = new FileReader();
+        reader.onloadend = function() {
+          var base64 = reader.result.split(',')[1];
+          fetch('/sessions/{{ session_id }}/recording', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ recording: base64 })
+          }).then(function() {
+            document.getElementById('recording-section').style.display = 'none';
+            document.getElementById('recording-preview').style.display = 'block';
+            document.getElementById('preview-audio').load();
+          });
+        };
+        reader.readAsDataURL(blob);
+      };
+      mediaRecorder.start();
+      document.getElementById('record-btn').disabled = true;
+      document.getElementById('stop-btn').disabled = false;
+      document.getElementById('recording-status').style.display = 'inline';
+    })
+    .catch(function(err) {
+      console.error('Microphone access denied:', err);
+    });
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+    mediaRecorder.stream.getTracks().forEach(function(t) { t.stop(); });
+  }
+  document.getElementById('record-btn').disabled = false;
+  document.getElementById('stop-btn').disabled = true;
+  document.getElementById('recording-status').style.display = 'none';
+}
+
+function reRecord() {
+  document.getElementById('recording-section').style.display = 'block';
+  document.getElementById('recording-preview').style.display = 'none';
+}
+</script>
+{% endblock %}

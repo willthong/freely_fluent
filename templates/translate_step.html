@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Translate "{{ english_word }}"</h1>
+{% if entries %}
+<p>Pick the Cantonese translation you want to learn:</p>
+<form method="post" action="/translate/{{ session_id }}/select">
+  {% for entry in entries %}
+  <div class="entry">
+    <label>
+      <input type="radio" name="chinese" value="{{ entry.chinese }}">
+      <strong>{{ entry.chinese }}</strong>
+      <span class="jyutping">[{{ entry.jyutping }}]</span>
+      — {{ entry.definition }}
+    </label>
+  </div>
+  {% endfor %}
+  <p><button type="submit">Continue to Images</button></p>
+</form>
+<p><a href="/sessions/{{ session_id }}/skip">Skip this word</a></p>
+{% else %}
+<p>No translation entries found for "{{ english_word }}".</p>
+<p><a href="/sessions/{{ session_id }}/skip">Skip this word</a></p>
+{% endif %}
+{% endblock %}

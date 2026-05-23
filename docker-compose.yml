@@ -1,0 +1,13 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - BRAVE_SEARCH_API_KEY=${BRAVE_SEARCH_API_KEY}
+    volumes:
+      - card_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  card_data:

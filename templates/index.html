@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Freely Fluent — Cantonese Flashcards</h1>
+<form method="post" action="/words">
+  <label for="words">Paste a list of English words (one per line):</label>
+  <textarea id="words" name="words" rows="8" cols="60"
+            placeholder="hello&#10;goodbye&#10;thank you"></textarea>
+  <p>
+    <button type="submit">Start</button>
+  </p>
+  {% if error %}
+  <p class="error">{{ error }}</p>
+  {% endif %}
+</form>
+{% endblock %}

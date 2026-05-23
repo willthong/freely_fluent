@@ -1,0 +1,114 @@
+{
+  "/home/will/projects/freely_fluent/brave_image_search.py": {
+    "mtime": 1778168679.1717162,
+    "hash": "8883f73906fbe65784f6e1b5fb6d7984"
+  },
+  "/home/will/projects/freely_fluent/session_manager.py": {
+    "mtime": 1778187043.3702571,
+    "hash": "498b31941013232fcae1e4d3f5f0f42b"
+  },
+  "/home/will/projects/freely_fluent/audio_service.py": {
+    "mtime": 1778167254.9475431,
+    "hash": "3f5694d1765da4a7db0222125afc94b1"
+  },
+  "/home/will/projects/freely_fluent/main.py": {
+    "mtime": 1778157322.1921692,
+    "hash": "bde230b1d23cb11fd05718cfb52a1fdb"
+  },
+  "/home/will/projects/freely_fluent/wiktionary_audio.py": {
+    "mtime": 1778166400.8312085,
+    "hash": "cee7e765b6fed8786eb091fbc1f8f871"
+  },
+  "/home/will/projects/freely_fluent/card_generator.py": {
+    "mtime": 1778159264.1392062,
+    "hash": "d331dc2fd3d522b1c778a5c26077d5d0"
+  },
+  "/home/will/projects/freely_fluent/cantodict_lookup.py": {
+    "mtime": 1778173253.3486347,
+    "hash": "57d6c317f91e7f56da57f2d7310554d0"
+  },
+  "/home/will/projects/freely_fluent/app.py": {
+    "mtime": 1778190582.6793823,
+    "hash": "208cc9ff187719f0672c37f6ccfb7689"
+  },
+  "/home/will/projects/freely_fluent/card_store.py": {
+    "mtime": 1778173348.2607708,
+    "hash": "7ec231436e3b5a084442ca9a6ebe7243"
+  },
+  "/home/will/projects/freely_fluent/tests/test_app_load_more.py": {
+    "mtime": 1778187188.9017937,
+    "hash": "c74b0b77bdf82fd233e1e20e29af86a0"
+  },
+  "/home/will/projects/freely_fluent/tests/test_audio_service.py": {
+    "mtime": 1778167207.0278685,
+    "hash": "8e255df9759dd85b5bcef9ac71062a30"
+  },
+  "/home/will/projects/freely_fluent/tests/test_audio_step.py": {
+    "mtime": 1778189804.1725554,
+    "hash": "bcfe472bf0fbb63ea6f3e717f8d897eb"
+  },
+  "/home/will/projects/freely_fluent/tests/test_card_generator.py": {
+    "mtime": 1778159467.3065288,
+    "hash": "aae7f04f102bb37bb33a74b01f21ff86"
+  },
+  "/home/will/projects/freely_fluent/tests/test_app.py": {
+    "mtime": 1778185563.780988,
+    "hash": "db95a7ee8547ea88c39ad10457cabe46"
+  },
+  "/home/will/projects/freely_fluent/tests/test_wiktionary_audio.py": {
+    "mtime": 1778166179.1888788,
+    "hash": "ca799fa17eb9bedbed43034b200f80e9"
+  },
+  "/home/will/projects/freely_fluent/tests/test_brave_image_search.py": {
+    "mtime": 1778168626.3685493,
+    "hash": "8b9a93bd70aa1030d57692b41eadcf39"
+  },
+  "/home/will/projects/freely_fluent/tests/test_session_manager.py": {
+    "mtime": 1778178853.0097208,
+    "hash": "653f329e3976e3e2d2f01445e07a5edd"
+  },
+  "/home/will/projects/freely_fluent/tests/test_card_store.py": {
+    "mtime": 1778157895.0064,
+    "hash": "a1b6b3e2670e0bd8403fea97be18795b"
+  },
+  "/home/will/projects/freely_fluent/tests/test_cantodict_lookup.py": {
+    "mtime": 1778163196.718805,
+    "hash": "62951dd628a1a62e1184ca8b5a2a6a7c"
+  },
+  "/home/will/projects/freely_fluent/PRD.md": {
+    "mtime": 1778192004.146684,
+    "hash": "e52d54db7c706c44c6331bb8a479d29d"
+  },
+  "/home/will/projects/freely_fluent/README.md": {
+    "mtime": 1778105734.8014452,
+    "hash": "f9eca855d851879c78404c5f12e5d273"
+  },
+  "/home/will/projects/freely_fluent/CONTEXT.md": {
+    "mtime": 1778167633.5620418,
+    "hash": "a36f460abcf6c1aa2c3e5c4496182289"
+  },
+  "/home/will/projects/freely_fluent/tests/fixtures/wiktionary_\u5c71.html": {
+    "mtime": 1778166126.2978,
+    "hash": "4baa8e9ff96ae631dd6215a9eaaea388"
+  },
+  "/home/will/projects/freely_fluent/tests/fixtures/wiktionary_\u5c71_audio.html": {
+    "mtime": 1778188040.9764934,
+    "hash": "3cbe9ddbd785c8fba4f84ee7b21b8935"
+  },
+  "/home/will/projects/freely_fluent/tests/fixtures/wiktionary_\u4f60.html": {
+    "mtime": 1778166027.7906537,
+    "hash": "74802b5c5aa7a780df000ed36b463729"
+  },
+  "/home/will/projects/freely_fluent/templates/image_step.html": {
+    "mtime": 1778185120.967276,
+    "hash": "39749740d1a11dafd2cebfbd48719438"
+  },
+  "/home/will/projects/freely_fluent/templates/audio_step.html": {
+    "mtime": 1778190139.5933638,
+    "hash": "af77452ea8e3ab9f79a986d2485a205b"
+  },
+  "/home/will/projects/freely_fluent/templates/base.html": {
+    "mtime": 1778184616.743423,
+    "hash": "339f32354031eef370c9038fc2cc8d1d"
+  }
+}

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>All Done!</h1>
+<p>You've completed {{ card_count }} Cantonese flashcard{{ 's' if card_count != 1 }}.</p>
+{% if cards %}
+<h2>Summary</h2>
+<ul class="card-list">
+  {% for card in cards %}
+  <li>
+    <strong>{{ card.chinese_characters }}</strong>
+    <span class="jyutping">[{{ card.jyutping }}]</span>
+    — {{ card.english_word }}
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+<p>
+  <a href="/export" class="btn">Export .apkg</a>
+  &nbsp;
+  <a href="/">Start New Session</a>
+</p>
+{% endblock %}
