@@ -11,10 +11,15 @@
 </div>
 <p>
   <button type="button"
+          id="confirm-wiktionary-btn"
+          hx-ext="json-enc"
           hx-post="/audio/{{ session_id }}"
           hx-vals='{"source":"wiktionary"}'
           hx-target="#result"
-          hx-on::after-request="JSON.parse(event.detail.xhr.response).completed && window.location.href='/complete/{{ session_id }}'">Confirm</button>
+          hx-on::click="setupConfirmButton(this)"
+          hx-on::after-request="handleConfirmResponse(event)">
+    Confirm Wiktionary audio
+  </button>
 </p>
 {% else %}
 <div class="no-audio">
@@ -40,16 +45,18 @@
 <!-- Recording preview (hidden until recording submitted) -->
 <div id="recording-preview" style="display:none;">
   <h2>Preview your recording</h2>
-  <audio id="preview-audio" controls>
-    <source src="/sessions/{{ session_id }}/recording" type="audio/webm">
-  </audio>
+  <audio id="preview-audio" controls></audio>
   <p>
     <button type="button"
+            id="confirm-recording-btn"
+            hx-ext="json-enc"
             hx-post="/audio/{{ session_id }}"
             hx-vals='{"source":"recording"}'
             hx-target="#result"
-            hx-on::after-request="JSON.parse(event.detail.xhr.response).completed && window.location.href='/complete/{{ session_id }}'"
-            id="confirm-recording-btn">Confirm</button>
+            hx-on::click="setupConfirmButton(this)"
+            hx-on::after-request="handleConfirmResponse(event)">
+      Confirm
+    </button>
     <button type="button"
             onclick="reRecord()"
             id="rerecord-btn">Re-record</button>
@@ -62,6 +69,32 @@
 <script>
 var mediaRecorder = null;
 var audioChunks = [];
+var recordingBase64 = null;
+
+function setupConfirmButton(btn) {
+  btn.disabled = true;
+}
+
+function handleConfirmResponse(event) {
+  var btn = event.detail.elt;
+  try {
+    var response = JSON.parse(event.detail.xhr.response);
+    if (response.error) {
+      // Server returned an error — show message and re-enable button
+      btn.disabled = false;
+      document.getElementById('result').innerHTML = '<p class="error">' + response.error + '</p>';
+    } else if (response.completed) {
+      window.location.assign('/complete/{{ session_id }}');
+    } else {
+      window.location.assign('/translate/{{ session_id }}');
+    }
+  } catch (e) {
+    // Response is not valid JSON — likely an error. Re-enable button.
+    btn.disabled = false;
+    document.getElementById('result').innerHTML = '<p class="error">An error occurred. Please try again.</p>';
+    console.error('Confirm returned invalid response:', event.detail.xhr.status, e);
+  }
+}
 
 function startRecording() {
   navigator.mediaDevices.getUserMedia({ audio: true })
@@ -75,15 +108,21 @@ function startRecording() {
         var blob = new Blob(audioChunks, { type: 'audio/webm' });
         var reader = new FileReader();
         reader.onloadend = function() {
-          var base64 = reader.result.split(',')[1];
+          recordingBase64 = reader.result.split(',')[1];
+          var dataUrl = 'data:audio/webm;base64,' + recordingBase64;
           fetch('/sessions/{{ session_id }}/recording', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ recording: base64 })
-          }).then(function() {
+            body: JSON.stringify({ recording: recordingBase64 })
+          }).then(function(resp) {
+            if (!resp.ok) {
+              console.error('Failed to save recording:', resp.status);
+              return;
+            }
             document.getElementById('recording-section').style.display = 'none';
             document.getElementById('recording-preview').style.display = 'block';
-            document.getElementById('preview-audio').load();
+            document.getElementById('preview-audio').src = dataUrl;
+            document.getElementById('confirm-recording-btn').disabled = false;
           });
         };
         reader.readAsDataURL(blob);
@@ -111,6 +150,8 @@ function stopRecording() {
 function reRecord() {
   document.getElementById('recording-section').style.display = 'block';
   document.getElementById('recording-preview').style.display = 'none';
+  recordingBase64 = null;
+  document.getElementById('confirm-recording-btn').disabled = false;
 }
 </script>
 {% endblock %}

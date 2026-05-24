@@ -329,28 +329,26 @@ def test_audio_step_preview_and_confirm_appear():
     client.post(f"/sessions/{session_id}/entries", json={"chinese": "你好"})
     client.post(f"/sessions/{session_id}/images", json={"result_index": 0})
 
-    # Submit a mock recording via POST with HTMX header
+    # Submit a mock recording via POST (browser uses fetch(), not HTMX)
     mock_recording = base64.b64encode(b"mock webm audio data").decode()
     r = client.post(
         f"/sessions/{session_id}/recording",
         json={"recording": mock_recording},
-        headers={"HX-Request": "true"},
     )
     assert r.status_code == 200
-    assert "text/html" in r.headers["content-type"]
-    body = r.text
-
-    # Response HTML contains preview section with playback and confirm
-    assert "Preview your recording" in body
-    assert f"/sessions/{session_id}/recording" in body
-    assert "Confirm" in body
-    assert "Re-record" in body
-
-    # Recording section should be hidden (hx-swap-oob)
-    assert "none" in body
+    data = r.json()
+    assert data["status"] == "saved"
 
     # Verify recording was saved to session
     assert len(card_store.get_all()) == 0  # Not confirmed yet, no card saved
+
+    # Verify the audio step page template has preview section with confirm
+    r = client.get(f"/audio/{session_id}")
+    assert r.status_code == 200
+    body = r.text
+    assert "Preview your recording" in body
+    assert "Confirm" in body
+    assert "Re-record" in body
 
 
 def test_audio_step_rerecord_flow():
@@ -402,40 +400,25 @@ def test_audio_step_rerecord_flow():
     assert 'id="stop-btn"' in body
     assert 'id="rerecord-btn"' in body  # Re-record button present in template
 
-    # 2. Submit first recording
+    # 2. Submit first recording (browser uses fetch(), not HTMX)
     first_recording = base64.b64encode(b"first attempt webm data").decode()
     r = client.post(
         f"/sessions/{session_id}/recording",
         json={"recording": first_recording},
-        headers={"HX-Request": "true"},
     )
     assert r.status_code == 200
-    body = r.text
-    assert "Preview your recording" in body
-    assert "Confirm" in body
-    assert "Re-record" in body
+    assert r.json()["status"] == "saved"
 
-    # 3. "Click" re-record — in the browser this calls reRecord() JS which
-    # hides preview and shows recording controls. In the test we verify the
-    # recording section can be re-entered by checking the template has both
-    # sections with the correct toggle logic.
-    # We simulate this by checking that re-entering the recording section
-    # works: submit a second recording and verify new preview.
-
-    # 4. Submit second recording (different bytes)
+    # 3. Submit second recording (different bytes) — simulates re-record
     second_recording = base64.b64encode(b"second attempt webm data!!").decode()
     r = client.post(
         f"/sessions/{session_id}/recording",
         json={"recording": second_recording},
-        headers={"HX-Request": "true"},
     )
     assert r.status_code == 200
-    body = r.text
-    # New preview appears after second recording
-    assert "Preview your recording" in body
-    assert "Confirm" in body
+    assert r.json()["status"] == "saved"
 
-    # 5. Confirm recording → card saved with SECOND recording bytes
+    # 4. Confirm recording → card saved with SECOND recording bytes
     r = client.post(f"/audio/{session_id}", json={"source": "recording"})
     assert r.status_code == 200
     data = r.json()
@@ -502,20 +485,14 @@ def test_audio_step_record_confirm_saves_card():
     assert 'id="record-btn"' in body
     assert 'id="stop-btn"' in body
 
-    # 3. Submit recording via POST with HTMX header
+    # 3. Submit recording via POST (browser uses fetch(), not HTMX)
     mock_recording = base64.b64encode(b"mock webm audio data").decode()
     r = client.post(
         f"/sessions/{session_id}/recording",
         json={"recording": mock_recording},
-        headers={"HX-Request": "true"},
     )
     assert r.status_code == 200
-    assert "text/html" in r.headers["content-type"]
-    body = r.text
-
-    # Preview section appears after recording
-    assert "Preview your recording" in body
-    assert "Confirm" in body
+    assert r.json()["status"] == "saved"
 
     # No card saved yet (not confirmed)
     assert len(card_store.get_all()) == 0

@@ -95,9 +95,9 @@ class SessionManager:
         """
         self._selected_audio = audio
         card_data = self._build_card_data()
-        self._advance_to_next_word()
         if card_data is None:
             return None
+        self._advance_to_next_word()
         if self._card_store is not None:
             flashcard = self._build_flashcard(card_data)
             return self._card_store.save_flashcard(flashcard)

@@ -233,7 +233,8 @@ def test_load_more_returns_400_when_no_entry_selected():
     session_id = r.json()["session_id"]
 
     r = client.get(f"/sessions/{session_id}/images/load-more")
-    assert r.status_code == 400
+    assert r.status_code == 200
+    assert r.json().get("error") is not None
 
 
 def test_load_more_offset_resets_on_word_advance():

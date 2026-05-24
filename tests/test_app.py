@@ -233,7 +233,8 @@ def test_recording_audio_without_recording_returns_error():
         f"/sessions/{session_id}/audio",
         json={"source": "recording"},
     )
-    assert r.status_code == 400
+    assert r.status_code == 200
+    assert r.json().get("error") is not None
 
 
 def test_translate_no_results_auto_skips_with_message():

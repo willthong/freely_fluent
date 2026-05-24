@@ -8,9 +8,12 @@ Pipeline step logic is delegated to PipelineOrchestrator (Story 20).
 from __future__ import annotations
 
 import base64
+import logging
 import os
 import tempfile
 import uuid
+
+logger = logging.getLogger(__name__)
 
 import httpx
 from fastapi import FastAPI, Form, Request
@@ -67,6 +70,16 @@ def create_app(
     templates = Jinja2Templates(
         env=Environment(loader=FileSystemLoader("templates"), cache_size=0),
     )
+
+    # Prevent browser caching of HTML pages during development
+    @app.middleware("http")
+    async def add_no_cache_headers(request: Request, call_next):
+        response = await call_next(request)
+        if "text/html" in response.headers.get("content-type", ""):
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+        return response
 
     # In-memory session store scoped to this app instance
     _sessions: dict[str, SessionManager] = {}
@@ -252,7 +265,7 @@ def create_app(
         if session is None or session.current_word is None:
             return Response(status_code=404)
         if session.current_step != "translate":
-            return Response(status_code=400)
+            return {"error": "not on translate step"}
         entries = _get_orchestrator().lookup_translations(session, session.current_word)
         if not entries:
             word = session.current_word
@@ -287,7 +300,7 @@ def create_app(
             return Response(status_code=404)
         characters = session.selected_characters
         if not characters:
-            return Response(status_code=400)
+            return {"error": "no entry selected"}
         results = _get_orchestrator().search_images(session)
         return {"results": results}
 
@@ -298,7 +311,7 @@ def create_app(
             return Response(status_code=404)
         characters = session.selected_characters
         if not characters:
-            return Response(status_code=400)
+            return {"error": "no entry selected"}
         results = _get_orchestrator().search_images(session)
         if req.result_index < 0 or req.result_index >= len(results):
             return Response(status_code=404)
@@ -315,7 +328,7 @@ def create_app(
             return Response(status_code=404)
         characters = session.selected_characters
         if not characters:
-            return Response(status_code=400)
+            return {"error": "no entry selected"}
         offset = session.load_more_images()
         results = _get_orchestrator().search_images(session, offset=offset)
         return {"results": results}
@@ -359,27 +372,14 @@ def create_app(
     @app.post("/sessions/{session_id}/recording")
     def submit_recording(session_id: str, req: RecordingRequest, request: Request):
         """Accept a base64-encoded browser recording and save to the session."""
+        logger.info(f"submit_recording called: session_id={session_id}, recording_len={len(req.recording)}")
         session = _sessions.get(session_id)
         if session is None:
+            logger.warning(f"submit_recording: session {session_id} not found")
             return Response(status_code=404)
         audio_bytes = base64.b64decode(req.recording)
         session.save_recording(audio_bytes)
-        if request.headers.get("HX-Request"):
-            return HTMLResponse(content=f"""
-<div id="recording-preview" style="display:block;">
-  <h2>Preview your recording</h2>
-  <audio id="preview-audio" controls>
-    <source src="/sessions/{session_id}/recording" type="audio/webm">
-  </audio>
-  <p>
-    <button type="button" hx-post="/audio/{session_id}"
-            hx-vals='{{"source":"recording"}}' hx-target="#result"
-            id="confirm-recording-btn">Confirm</button>
-    <button type="button" onclick="reRecord()" id="rerecord-btn">Re-record</button>
-  </p>
-</div>
-<div id="recording-section" style="display:none;" hx-swap-oob="true"></div>
-""")
+        logger.info(f"submit_recording: saved {len(audio_bytes)} bytes for session {session_id}")
         return {"status": "saved"}
 
     # ── Audio (recording playback) ──
@@ -405,10 +405,10 @@ def create_app(
             return Response(status_code=404)
         characters = session.selected_characters
         if not characters:
-            return Response(status_code=400)
+            return {"error": "no entry selected"}
         result = _get_orchestrator().confirm_audio(session, req.source)
         if result is None:
-            return Response(status_code=400)
+            return {"error": "audio confirmation failed, check entry and images"}
         return {
             "completed": session.is_complete,
             "current_word": session.current_word,
@@ -450,10 +450,10 @@ def create_app(
             return Response(status_code=404)
         characters = session.selected_characters
         if not characters:
-            return Response(status_code=400)
+            return {"error": "no entry selected"}
         result = _get_orchestrator().confirm_audio(session, req.source)
         if result is None:
-            return Response(status_code=400)
+            return {"error": "audio confirmation failed, check entry and images"}
         return {
             "completed": session.is_complete,
             "current_word": session.current_word,
@@ -492,6 +492,8 @@ def create_app(
             idx = int(idx_str)
             if 0 <= idx < len(results):
                 session.add_image(results[idx])
+        if not session.selected_images:
+            return RedirectResponse(url=f"/image/{session_id}", status_code=303)
         return RedirectResponse(url=f"/audio/{session_id}", status_code=303)
 
     # ── Skip ──
