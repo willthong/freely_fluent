@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 import httpx
@@ -139,11 +140,36 @@ class SessionManager:
             audio_data=card_data["audio"],
         )
 
+    def _decode_brave_redirect_url(self, image_url: str) -> str | None:
+        """Decode the original image URL from a Brave redirect proxy URL.
+
+        Brave redirect URLs embed the original URL as base64url after the
+        ``g:ce/`` segment: ``https://imgs.search.brave.com/<TOKEN>/.../g:ce/<BASE64URL>``.
+
+        Returns ``None`` if *image_url* is not a Brave redirect or decoding fails.
+        """
+        if not image_url.startswith("https://imgs.search.brave.com/"):
+            return None
+        try:
+            idx = image_url.index("g:ce/")
+            b64url = image_url[idx + len("g:ce/"):] if idx != -1 else ""
+            if not b64url:
+                return None
+            decoded = base64.urlsafe_b64decode(b64url + "==")
+            return decoded.decode("utf-8")
+        except (ValueError, UnicodeDecodeError, IndexError):
+            return None
+
     def _resolve_image(self, image_url: str | bytes) -> bytes | None:
         """Resolve an image reference to actual image bytes.
 
-        If *image_url* is a string URL, download the image via the HTTP client.
-        If already bytes, return as-is (for backward compat / test fixtures).
+        If *image_url* is bytes, return as-is (backward compat / test fixtures).
+
+        If *image_url* is a string:
+        - For Brave redirect URLs: decode the original URL, try downloading
+          from it first, then fall back to the Brave redirect URL.
+        - For other URLs: download directly from the URL.
+
         Returns ``None`` when the URL cannot be resolved (no HTTP client or
         download fails) — the caller must not save a broken card.
         """
@@ -153,12 +179,25 @@ class SessionManager:
             return None
         if self._http_client is None:
             return None
+
+        # Try to decode Brave redirect URL and attempt original first
+        original_url = self._decode_brave_redirect_url(image_url)
+        if original_url is not None:
+            try:
+                resp = self._http_client.get(original_url, timeout=15)
+                if resp.status_code == 200:
+                    return resp.content
+            except httpx.RequestError:
+                pass
+
+        # Download (original Brave redirect URL or non-Brave URL)
         try:
             resp = self._http_client.get(image_url, timeout=15)
             if resp.status_code == 200:
                 return resp.content
         except httpx.RequestError:
             pass
+
         return None
 
     def _build_card_data(self) -> dict[str, Any] | None:

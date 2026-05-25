@@ -240,6 +240,117 @@ def test_single_word_complete_after_skip():
     sm.skip()
     assert sm.is_complete
 
+# ── Brave redirect URL decoding ──────────────────────────────────────
+
+
+def test_decode_brave_redirect_known_url():
+    """_decode_brave_redirect_url decodes a known Brave redirect to original URL."""
+    sm = SessionManager(["hello"])
+    brave_url = ("https://imgs.search.brave.com/abc123/rs:fit:500:0:1:0/g:ce/"
+                 "aHR0cHM6Ly9leGFtcGxlLmNvbS9pbWFnZS5qcGc")
+    result = sm._decode_brave_redirect_url(brave_url)
+    assert result == "https://example.com/image.jpg"
+
+
+def test_decode_brave_redirect_non_brave_url():
+    """_decode_brave_redirect_url returns None for non-Brave URLs."""
+    sm = SessionManager(["hello"])
+    result = sm._decode_brave_redirect_url("https://example.com/image.jpg")
+    assert result is None
+
+
+def test_decode_brave_redirect_empty_string():
+    """_decode_brave_redirect_url returns None for empty string."""
+    sm = SessionManager(["hello"])
+    result = sm._decode_brave_redirect_url("")
+    assert result is None
+
+
+def test_decode_brave_redirect_malformed_url():
+    """_decode_brave_redirect_url returns None for malformed Brave URL (no g:ce/)."""
+    sm = SessionManager(["hello"])
+    result = sm._decode_brave_redirect_url("https://imgs.search.brave.com/abc123/not-a-valid-url")
+    assert result is None
+
+
+def test_decode_brave_redirect_real_world_example():
+    """_decode_brave_redirect_url decodes a real-world ClubBBoss URL."""
+    sm = SessionManager(["hello"])
+    url = ("https://imgs.search.brave.com/DklKwsoe8KVaTIQTo583rrVT6uHxO9saZR4GCyyqSwk/"
+           "rs:fit:500:0:1:0/g:ce/"
+           "aHR0cHM6Ly93d3cub3VyY2hpbmFzdG9yeS5jb20vaW1hZ2VzL2NvdmVyL2hvbmgra29uZy8yMDI1LzA2L3NxdWFyZS9DbHViQkJvc3NfeDEuanBn")
+    assert sm._decode_brave_redirect_url(url) == "https://www.ourchinastory.com/images/cover/honh+kong/2025/06/square/ClubBBoss_x1.jpg"
+
+
+# ── Image resolution: Brave redirect fallback chain ───────────────────
+
+
+def test_resolve_image_brave_redirect_original_succeeds():
+    """Brave redirect: decoded original URL downloads successfully → return its bytes."""
+    from unittest.mock import Mock
+    sm = SessionManager(["hello"])
+    brave_url = ("https://imgs.search.brave.com/abc123/rs:fit:500:0:1:0/g:ce/"
+                 "aHR0cHM6Ly9leGFtcGxlLmNvbS9pbWFnZS5qcGc")
+    sm._http_client = Mock()
+    sm._http_client.get = Mock(
+        return_value=Mock(status_code=200, content=b"ORIGINAL_BYTES")
+    )
+    result = sm._resolve_image(brave_url)
+    assert result == b"ORIGINAL_BYTES"
+    # Only one download attempt (original succeeded)
+    assert sm._http_client.get.call_count == 1
+
+
+def test_resolve_image_brave_redirect_original_fails_proxy_succeeds():
+    """Brave redirect: original returns 403, proxy succeeds → return proxy bytes."""
+    from unittest.mock import Mock
+    sm = SessionManager(["hello"])
+    original_url = "https://example.com/image.jpg"
+    brave_url = ("https://imgs.search.brave.com/abc123/rs:fit:500:0:1:0/g:ce/"
+                 "aHR0cHM6Ly9leGFtcGxlLmNvbS9pbWFnZS5qcGc")
+    sm._http_client = Mock()
+    def get_side_effect(url, **kw):
+        if url == original_url:
+            return Mock(status_code=403, content=b"Forbidden")
+        elif url == brave_url:
+            return Mock(status_code=200, content=b"PROXY_BYTES")
+        return Mock(status_code=404)
+    sm._http_client.get = Mock(side_effect=get_side_effect)
+    result = sm._resolve_image(brave_url)
+    assert result == b"PROXY_BYTES"
+    # Both URLs were tried
+    assert sm._http_client.get.call_count == 2
+
+
+def test_resolve_image_brave_redirect_both_fail():
+    """Brave redirect: both original and proxy return 403 → return None."""
+    from unittest.mock import Mock
+    sm = SessionManager(["hello"])
+    brave_url = ("https://imgs.search.brave.com/abc123/rs:fit:500:0:1:0/g:ce/"
+                 "aHR0cHM6Ly9leGFtcGxlLmNvbS9pbWFnZS5qcGc")
+    sm._http_client = Mock()
+    sm._http_client.get = Mock(
+        return_value=Mock(status_code=403, content=b"Forbidden")
+    )
+    result = sm._resolve_image(brave_url)
+    assert result is None
+    # Both URLs were tried
+    assert sm._http_client.get.call_count == 2
+
+
+def test_resolve_image_brave_redirect_request_error():
+    """Brave redirect: RequestError on both URLs → return None."""
+    import httpx
+    from unittest.mock import Mock
+    sm = SessionManager(["hello"])
+    sm._http_client = Mock()
+    sm._http_client.get = Mock(side_effect=httpx.RequestError("Connection error"))
+    brave_url = ("https://imgs.search.brave.com/abc123/rs:fit:500:0:1:0/g:ce/"
+                 "aHR0cHM6Ly9leGFtcGxlLmNvbS9pbWFnZS5qcGc")
+    result = sm._resolve_image(brave_url)
+    assert result is None
+
+
 # ── Image resolution: URL strings must not be saved as image_data ──
 
 
