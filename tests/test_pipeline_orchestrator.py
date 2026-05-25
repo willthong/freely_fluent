@@ -97,7 +97,11 @@ def test_full_pipeline_orchestrate_one_word():
     brave = BraveImageSearch(api_key="test-key", client=_make_brave_client())
     audio_svc = AudioService(client=_make_audio_download_client())
 
-    session = SessionManager(["hello"], card_store=card_store)
+    audio_download = _make_audio_download_client()
+    session = SessionManager(
+        ["hello"], card_store=card_store,
+        http_client=audio_download,
+    )
 
     orch = PipelineOrchestrator(
         cantodict=cantodict,
@@ -188,7 +192,11 @@ def test_two_word_pipeline_advances_then_completes():
     brave = BraveImageSearch(api_key="test-key", client=_make_brave_client())
     audio_svc = AudioService(client=_make_audio_download_client())
 
-    session = SessionManager(["hello", "goodbye"], card_store=card_store)
+    audio_download = _make_audio_download_client()
+    session = SessionManager(
+        ["hello", "goodbye"], card_store=card_store,
+        http_client=audio_download,
+    )
 
     orch = PipelineOrchestrator(
         cantodict=cantodict, brave=brave,

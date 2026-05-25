@@ -72,7 +72,7 @@ def test_select_audio_returns_card_data():
     """select_audio returns card data dict when all fields present."""
     sm = SessionManager(["hello"])
     sm.select_entry({"chinese": "\u4f60\u597d", "jyutping": "nei5 hou2"})
-    sm.add_image({"thumbnail_url": "https://example.com/img.jpg"})
+    sm.add_image({"thumbnail_url": b"\x89PNG"})
     audio = b"OggS"
     card = sm.select_audio(audio)
     assert card is not None
@@ -86,7 +86,7 @@ def test_select_audio_advances_to_next_word():
     """select_audio advances to next word after building card."""
     sm = SessionManager(["hello", "goodbye"])
     sm.select_entry({"chinese": "\u4f60\u597d", "jyutping": "nei5 hou2"})
-    sm.add_image({"thumbnail_url": "https://example.com/img.jpg"})
+    sm.add_image({"thumbnail_url": b"\x89PNG"})
     sm.select_audio(b"OggS")
     assert sm.current_word == "goodbye"
     assert sm.current_step == "translate"
@@ -95,7 +95,7 @@ def test_select_audio_advances_to_next_word():
 def test_select_audio_returns_none_missing_entry():
     """select_audio returns None if no entry selected."""
     sm = SessionManager(["hello"])
-    sm.add_image({"thumbnail_url": "https://example.com/img.jpg"})
+    sm.add_image({"thumbnail_url": b"\x89PNG"})
     card = sm.select_audio(b"OggS")
     assert card is None
 
@@ -112,7 +112,7 @@ def test_select_audio_returns_none_missing_audio():
     """select_audio returns None if no audio (downloaded or recorded)."""
     sm = SessionManager(["hello"])
     sm.select_entry({"chinese": "\u4f60\u597d", "jyutping": "nei5 hou2"})
-    sm.add_image({"thumbnail_url": "https://example.com/img.jpg"})
+    sm.add_image({"thumbnail_url": b"\x89PNG"})
     card = sm.select_audio(None)
     assert card is None
 
@@ -121,7 +121,7 @@ def test_select_audio_uses_recording_when_download_fails():
     """select_audio falls back to recording if download returns None."""
     sm = SessionManager(["hello"])
     sm.select_entry({"chinese": "\u4f60\u597d", "jyutping": "nei5 hou2"})
-    sm.add_image({"thumbnail_url": "https://example.com/img.jpg"})
+    sm.add_image({"thumbnail_url": b"\x89PNG"})
     sm.save_recording(b"\x00\x01webm data")
     card = sm.select_audio(None)
     assert card is not None
@@ -154,7 +154,7 @@ def test_skip_resets_selections():
     """skip resets all selections for the new word."""
     sm = SessionManager(["hello", "goodbye"])
     sm.select_entry({"chinese": "\u4f60\u597d", "jyutping": "nei5 hou2"})
-    sm.add_image({"thumbnail_url": "https://example.com/img.jpg"})
+    sm.add_image({"thumbnail_url": b"\x89PNG"})
     sm.save_recording(b"webm data")
     sm.skip()
     assert sm.selected_entry is None
@@ -187,7 +187,7 @@ def test_full_pipeline_two_words():
 
     # Process word 1
     sm.select_entry({"chinese": "\u4f60\u597d", "jyutping": "nei5 hou2"})
-    sm.add_image({"thumbnail_url": "https://example.com/img1.jpg"})
+    sm.add_image({"thumbnail_url": b"\x89PNG1"})
     card1 = sm.select_audio(b"OggS")
     assert card1 is not None
     assert card1["english_word"] == "hello"
@@ -195,7 +195,7 @@ def test_full_pipeline_two_words():
 
     # Process word 2
     sm.select_entry({"chinese": "\u518d\u89c1", "jyutping": "zaai6 gin3"})
-    sm.add_image({"thumbnail_url": "https://example.com/img2.jpg"})
+    sm.add_image({"thumbnail_url": b"\x89PNG2"})
     card2 = sm.select_audio(b"OggS2")
     assert card2 is not None
     assert card2["english_word"] == "goodbye"
@@ -207,7 +207,7 @@ def test_image_offset_resets_on_advance():
     sm = SessionManager(["hello", "goodbye"])
     sm.load_more_images(12)
     sm.select_entry({"chinese": "\u4f60\u597d", "jyutping": "nei5 hou2"})
-    sm.add_image({"thumbnail_url": "https://example.com/img.jpg"})
+    sm.add_image({"thumbnail_url": b"\x89PNG"})
     sm.select_audio(b"OggS")
     assert sm.image_offset == 0
 
@@ -223,7 +223,7 @@ def test_step_progression():
     assert sm.current_step == "translate"
     sm.select_entry({"chinese": "\u4f60\u597d", "jyutping": "nei5 hou2"})
     assert sm.current_step == "image"
-    sm.add_image({"thumbnail_url": "https://example.com/img.jpg"})
+    sm.add_image({"thumbnail_url": b"\x89PNG"})
     assert sm.current_step == "audio"
 
 
@@ -239,6 +239,99 @@ def test_single_word_complete_after_skip():
     sm = SessionManager(["hello"])
     sm.skip()
     assert sm.is_complete
+
+# ── Image resolution: URL strings must not be saved as image_data ──
+
+
+def _mock_http_client(status_code=200, content=b"\x89PNG fake image"):
+    """Build a fake httpx client for testing._http_client."""
+    import httpx
+    response = httpx.Response(
+        status_code=status_code,
+        content=content,
+        headers={"Content-Type": "image/png"},
+        request=httpx.Request("GET", "https://example.com/img.jpg"),
+    )
+    fake = httpx.Client()
+    fake.get = lambda *args, **kwargs: response
+    return fake
+
+
+def test_select_audio_download_403_no_save():
+    """When the HTTP client returns 403, image can't be resolved.
+    select_audio returns None and does NOT advance."""
+    import httpx
+    store = _make_store()
+    sm = SessionManager(["hello"], card_store=store)
+    sm._http_client = _mock_http_client(status_code=403)
+    sm.select_entry({"chinese": "\u4f60\u597d", "jyutping": "nei5 hou2"})
+    sm.add_image({"thumbnail_url": "https://example.com/img.jpg"})
+    result = sm.select_audio(b"OggS")
+    assert result is None
+    assert sm.current_word == "hello"  # no advance
+    assert len(store.get_all()) == 0
+
+
+def test_select_audio_download_200_saves_real_bytes():
+    """When the HTTP client returns 200, image bytes are saved to Flashcard."""
+    import httpx
+    store = _make_store()
+    sm = SessionManager(["hello"], card_store=store)
+    real_image = b"\x89PNG\r\n\x1a\n real image data here"
+    sm._http_client = _mock_http_client(status_code=200, content=real_image)
+    sm.select_entry({"chinese": "\u4f60\u597d", "jyutping": "nei5 hou2"})
+    sm.add_image({"thumbnail_url": "https://example.com/img.jpg"})
+    result = sm.select_audio(b"OggS")
+    assert result is not None
+    assert result.image_data == real_image
+    assert sm.current_word is None  # only word, now complete
+    assert len(store.get_all()) == 1
+
+
+def test_select_audio_request_error_no_save():
+    """When httpx raises RequestError, image can't be resolved.
+    select_audio returns None and does NOT advance."""
+    import httpx
+    store = _make_store()
+    sm = SessionManager(["hello"], card_store=store)
+
+    class _broken_client(httpx.Client):
+        def get(self, *a, **kw):
+            raise httpx.ConnectError("DNS failure")
+
+    sm._http_client = _broken_client()
+    sm.select_entry({"chinese": "\u4f60\u597d", "jyutping": "nei5 hou2"})
+    sm.add_image({"thumbnail_url": "https://example.com/img.jpg"})
+    result = sm.select_audio(b"OggS")
+    assert result is None
+    assert sm.current_word == "hello"  # no advance
+    assert len(store.get_all()) == 0
+
+
+def test_select_audio_no_advance_when_image_url_cannot_resolve():
+    """When image is a URL string and no HTTP client is injected,
+    select_audio returns None and does NOT advance the session.
+    The URL was never real image data — saving it would produce a broken card."""
+    sm = SessionManager(["hello"], card_store=_make_store())
+    sm.select_entry({"chinese": "\u4f60\u597d", "jyutping": "nei5 hou2"})
+    sm.add_image({"thumbnail_url": "https://example.com/img.jpg"})
+    result = sm.select_audio(b"OggS")
+    # Must not save a broken card or lose session state
+    assert result is None
+    assert sm.current_word == "hello"  # still on same word — no advance
+    assert len(sm._card_store.get_all()) == 0  # nothing saved
+
+
+def test_select_audio_no_advance_backward_compat_no_store():
+    """Without card_store + unresolved image URL, select_audio returns None
+    and does NOT advance session. (Old behavior returned a dict with URL-as-bytes)."""
+    sm = SessionManager(["hello"])
+    sm.select_entry({"chinese": "\u4f60\u597d", "jyutping": "nei5 hou2"})
+    sm.add_image({"thumbnail_url": "https://example.com/img.jpg"})
+    result = sm.select_audio(b"OggS")
+    assert result is None
+    assert sm.current_word == "hello"  # no advance
+
 
 # ── Story 21: CardStore injection & save-advance ─────────────────────────
 
@@ -260,7 +353,7 @@ def test_select_audio_saves_via_card_store():
     store = _make_store()
     sm = SessionManager(["hello"], card_store=store)
     sm.select_entry({"chinese": "\u4f60\u597d", "jyutping": "nei5 hou2"})
-    sm.add_image({"thumbnail_url": "https://example.com/img.jpg"})
+    sm.add_image({"thumbnail_url": b"\x89PNG real image data"})
     result = sm.select_audio(b"OggS")
     # Should return the saved Flashcard (not a dict)
     from card_store import Flashcard
@@ -273,25 +366,27 @@ def test_select_audio_saves_via_card_store():
     assert retrieved.chinese_characters == "\u4f60\u597d"
     assert retrieved.jyutping == "nei5 hou2"
     assert retrieved.audio_data == b"OggS"
+    # image_data must be real bytes, not a URL string
+    assert b"\x89PNG" in retrieved.image_data
 
 
-def test_select_audio_saves_image_url_from_first_image():
-    """Saved Flashcard image_data is the URL string from first selected image."""
+def test_select_audio_saves_image_data_from_first_image():
+    """Saved Flashcard image_data is the image bytes from first selected image."""
     store = _make_store()
     sm = SessionManager(["hello"], card_store=store)
     sm.select_entry({"chinese": "\u4f60\u597d", "jyutping": "nei5 hou2"})
-    sm.add_image({"thumbnail_url": "https://example.com/img.jpg"})
-    sm.add_image({"thumbnail_url": "https://example.com/img2.jpg"})
+    sm.add_image({"thumbnail_url": b"\x89PNG first image"})
+    sm.add_image({"thumbnail_url": b"\x89PNG second image"})
     result = sm.select_audio(b"OggS")
     assert result is not None
-    assert result.image_data == b"https://example.com/img.jpg"
+    assert result.image_data == b"\x89PNG first image"
 
 
 def test_select_audio_no_save_when_fields_missing():
     """When fields are missing, select_audio returns None and does not save."""
     store = _make_store()
     sm = SessionManager(["hello"], card_store=store)
-    sm.add_image({"thumbnail_url": "https://example.com/img.jpg"})
+    sm.add_image({"thumbnail_url": b"\x89PNG"})
     # No entry selected — missing required field
     result = sm.select_audio(b"OggS")
     assert result is None
@@ -303,7 +398,7 @@ def test_select_audio_advances_after_save():
     store = _make_store()
     sm = SessionManager(["hello", "goodbye"], card_store=store)
     sm.select_entry({"chinese": "\u4f60\u597d", "jyutping": "nei5 hou2"})
-    sm.add_image({"thumbnail_url": "https://example.com/img.jpg"})
+    sm.add_image({"thumbnail_url": b"\x89PNG"})
     sm.select_audio(b"OggS")
     assert sm.current_word == "goodbye"
     assert sm.current_step == "translate"
@@ -313,7 +408,7 @@ def test_select_audio_backward_compat_no_store():
     """Without card_store, select_audio returns card_data dict."""
     sm = SessionManager(["hello"])
     sm.select_entry({"chinese": "\u4f60\u597d", "jyutping": "nei5 hou2"})
-    sm.add_image({"thumbnail_url": "https://example.com/img.jpg"})
+    sm.add_image({"thumbnail_url": b"\x89PNG"})
     result = sm.select_audio(b"OggS")
     assert isinstance(result, dict)
     assert result["english_word"] == "hello"
@@ -333,14 +428,14 @@ def test_full_pipeline_two_words_with_store():
 
     # Word 1
     sm.select_entry({"chinese": "\u4f60\u597d", "jyutping": "nei5 hou2"})
-    sm.add_image({"thumbnail_url": "https://example.com/img1.jpg"})
+    sm.add_image({"thumbnail_url": b"\x89PNG img1"})
     card1 = sm.select_audio(b"OggS")
     assert card1 is not None
     assert card1.english_word == "hello"
 
     # Word 2
     sm.select_entry({"chinese": "\u518d\u89c1", "jyutping": "zaai6 gin3"})
-    sm.add_image({"thumbnail_url": "https://example.com/img2.jpg"})
+    sm.add_image({"thumbnail_url": b"\x89PNG img2"})
     card2 = sm.select_audio(b"OggS2")
     assert card2 is not None
     assert card2.english_word == "goodbye"
@@ -356,7 +451,7 @@ def test_select_audio_falls_back_to_recording_with_store():
     store = _make_store()
     sm = SessionManager(["hello"], card_store=store)
     sm.select_entry({"chinese": "\u4f60\u597d", "jyutping": "nei5 hou2"})
-    sm.add_image({"thumbnail_url": "https://example.com/img.jpg"})
+    sm.add_image({"thumbnail_url": b"\x89PNG"})
     sm.save_recording(b"\x00\x01webm data")
     result = sm.select_audio(None)
     assert result is not None
@@ -368,7 +463,7 @@ def test_select_audio_no_recording_no_save():
     store = _make_store()
     sm = SessionManager(["hello"], card_store=store)
     sm.select_entry({"chinese": "\u4f60\u597d", "jyutping": "nei5 hou2"})
-    sm.add_image({"thumbnail_url": "https://example.com/img.jpg"})
+    sm.add_image({"thumbnail_url": b"\x89PNG"})
     result = sm.select_audio(None)
     assert result is None
     assert len(store.get_all()) == 0

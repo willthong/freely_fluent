@@ -278,6 +278,7 @@ def test_recording_submit_and_playback():
 
     wiktionary_client = _make_wiktionary_client()
     brave_client = _make_brave_client()
+    audio_download_client = _make_audio_download_client()
 
     cantodict = CantoneseDictionary(cantodict_path)
     card_store = CardStore(card_db_path)
@@ -289,6 +290,7 @@ def test_recording_submit_and_playback():
         card_generator=card_generator,
         wiktionary_client=wiktionary_client,
         brave_client=brave_client,
+        audio_download_client=audio_download_client,
         api_key="test-key",
     )
     client = TestClient(app)
@@ -370,6 +372,7 @@ def test_recording_preview_then_rerecord():
 
     wiktionary_client = _make_wiktionary_client()
     brave_client = _make_brave_client()
+    audio_download_client = _make_audio_download_client()
 
     cantodict = CantoneseDictionary(cantodict_path)
     card_store = CardStore(card_db_path)
@@ -381,6 +384,7 @@ def test_recording_preview_then_rerecord():
         card_generator=card_generator,
         wiktionary_client=wiktionary_client,
         brave_client=brave_client,
+        audio_download_client=audio_download_client,
         api_key="test-key",
     )
     client = TestClient(app)

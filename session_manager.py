@@ -95,15 +95,22 @@ class SessionManager:
         When a *card_store* is injected and all fields are present, builds
         a ``Flashcard``, saves it, and returns the saved ``Flashcard``.
         When no *card_store* is injected, returns a card data ``dict``.
-        Returns ``None`` when required fields are missing (no save occurs).
+        Returns ``None`` when required fields are missing or the image
+        cannot be resolved to actual bytes (no save/advance occurs).
         """
         self._selected_audio = audio
         card_data = self._build_card_data()
         if card_data is None:
             return None
+        # Resolve image once, share result between both code paths.
+        first_image = card_data["images"][0]
+        image_url = first_image.get("thumbnail_url", first_image.get("url", ""))
+        image_data = self._resolve_image(image_url)
+        if image_data is None:
+            return None
         self._advance_to_next_word()
         if self._card_store is not None:
-            flashcard = self._build_flashcard(card_data)
+            flashcard = self._build_flashcard(card_data, image_data)
             return self._card_store.save_flashcard(flashcard)
         return card_data
 
@@ -119,14 +126,11 @@ class SessionManager:
         """Discard the current word and advance to the next."""
         self._advance_to_next_word()
 
-    def _build_flashcard(self, card_data: dict[str, Any]) -> "Flashcard":
-        """Build a Flashcard dataclass from card data dict."""
+    def _build_flashcard(self, card_data: dict[str, Any], image_data: bytes) -> "Flashcard":
+        """Build a Flashcard dataclass from card data dict and pre-resolved image bytes."""
         # Import at method level to avoid circular import at module load
         from card_store import Flashcard
 
-        first_image = card_data["images"][0]
-        image_url = first_image.get("thumbnail_url", first_image.get("url", ""))
-        image_data = self._resolve_image(image_url)
         return Flashcard(
             english_word=card_data["english_word"],
             chinese_characters=card_data["chinese_characters"],
@@ -135,26 +139,27 @@ class SessionManager:
             audio_data=card_data["audio"],
         )
 
-    def _resolve_image(self, image_url: str | bytes) -> bytes:
+    def _resolve_image(self, image_url: str | bytes) -> bytes | None:
         """Resolve an image reference to actual image bytes.
 
         If *image_url* is a string URL, download the image via the HTTP client.
         If already bytes, return as-is (for backward compat / test fixtures).
-        Falls back to the raw URL bytes if download fails.
+        Returns ``None`` when the URL cannot be resolved (no HTTP client or
+        download fails) — the caller must not save a broken card.
         """
         if isinstance(image_url, bytes):
             return image_url
         if not image_url:
-            return b""
+            return None
         if self._http_client is None:
-            return image_url.encode()
+            return None
         try:
             resp = self._http_client.get(image_url, timeout=15)
             if resp.status_code == 200:
                 return resp.content
         except httpx.RequestError:
             pass
-        return image_url.encode()
+        return None
 
     def _build_card_data(self) -> dict[str, Any] | None:
         """Assemble card data from the current selections.

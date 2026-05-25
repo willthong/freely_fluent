@@ -61,6 +61,7 @@ def create_app(
     wiktionary_client: httpx.Client | None = None,
     brave_client: httpx.Client | None = None,
     audio_download_client: httpx.Client | None = None,
+    image_download_client: httpx.Client | None = None,
     api_key: str | None = None,
 ) -> FastAPI:
     """Create a FastAPI app with injected dependencies."""
@@ -106,10 +107,16 @@ def create_app(
         if deps["api_key"]
         else None
     )
-    image_download_client = httpx.Client(
-        headers={"User-Agent": "Mozilla/5.0 (FreeLyFluent)"},
-        timeout=15,
-    )
+    if image_download_client is None:
+        # Default: use audio_download_client for image resolution,
+        # or create a real HTTP client if neither is provided.
+        if audio_download_client is not None:
+            image_download_client = audio_download_client
+        else:
+            image_download_client = httpx.Client(
+                headers={"User-Agent": "Mozilla/5.0 (FreeLyFluent)"},
+                timeout=15,
+            )
 
     orchestrator = PipelineOrchestrator(
         cantodict=deps["cantodict"],
@@ -459,7 +466,11 @@ def create_app(
 
     @app.post("/audio/{session_id}")
     def confirm_audio_step(session_id: str, req: AudioSelectRequest):
-        """Confirm audio choice from the audio step page."""
+        """Confirm audio choice from the audio step page.
+
+        Returns JSON with completed status. HTMX frontend handles
+        redirect to completion page when completed=True.
+        """
         session = _sessions.get(session_id)
         if session is None:
             return Response(status_code=404)
