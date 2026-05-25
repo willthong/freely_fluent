@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import subprocess
 import tempfile
 
 import genanki
@@ -49,6 +50,9 @@ class CardGenerator:
     def _write_media(data: bytes, ext: str, media_dir: str) -> str:
         digest = hashlib.sha1(data).hexdigest()
         path = os.path.join(media_dir, f"{digest}.{ext}")
+        # Re-encode Opus audio to Vorbis (Anki's Qt 5 can't play Opus)
+        if ext == "ogg" and CardGenerator._is_opus(data):
+            data = CardGenerator._opus_to_vorbis(data)
         with open(path, "wb") as f:
             f.write(data)
         return path
@@ -70,3 +74,38 @@ class CardGenerator:
         if data[:3] == b"GIF":
             return "gif"
         return "png"
+
+    @staticmethod
+    def _is_opus(data: bytes) -> bool:
+        """Detect if OGG data contains Opus encoding."""
+        return b"OpusHead" in data
+
+    @staticmethod
+    def _opus_to_vorbis(data: bytes) -> bytes:
+        """Convert Opus OGG to Vorbis OGG via ffmpeg."""
+        tmp_in = tempfile.NamedTemporaryFile(suffix=".ogg", delete=False)
+        tmp_out = tempfile.NamedTemporaryFile(suffix=".ogg", delete=False)
+        try:
+            tmp_in.write(data)
+            tmp_in.close()
+            result = subprocess.run(
+                [
+                    "ffmpeg", "-y",
+                    "-i", tmp_in.name,
+                    "-codec:a", "libvorbis",
+                    "-qscale:a", "5",
+                    tmp_out.name,
+                ],
+                capture_output=True,
+                timeout=30,
+            )
+            if result.returncode == 0:
+                with open(tmp_out.name, "rb") as f:
+                    return f.read()
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            pass
+        finally:
+            os.unlink(tmp_in.name)
+            if os.path.exists(tmp_out.name):
+                os.unlink(tmp_out.name)
+        return data  # fallback: return original

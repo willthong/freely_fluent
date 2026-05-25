@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Optional, Union
 
+import httpx
+
 if TYPE_CHECKING:
     from card_store import CardStoreProtocol, Flashcard
 
@@ -21,9 +23,11 @@ class SessionManager:
         self,
         words: list[str],
         card_store: Optional["CardStoreProtocol"] = None,
+        http_client: Optional[httpx.Client] = None,
     ) -> None:
         self._words = words
         self._card_store = card_store
+        self._http_client = http_client
         self._word_index = 0
         self._step_index = 0
         self._selected_entry: dict[str, Any] | None = None
@@ -122,15 +126,35 @@ class SessionManager:
 
         first_image = card_data["images"][0]
         image_url = first_image.get("thumbnail_url", first_image.get("url", ""))
-        if isinstance(image_url, str):
-            image_url = image_url.encode()
+        image_data = self._resolve_image(image_url)
         return Flashcard(
             english_word=card_data["english_word"],
             chinese_characters=card_data["chinese_characters"],
             jyutping=card_data["jyutping"],
-            image_data=image_url,
+            image_data=image_data,
             audio_data=card_data["audio"],
         )
+
+    def _resolve_image(self, image_url: str | bytes) -> bytes:
+        """Resolve an image reference to actual image bytes.
+
+        If *image_url* is a string URL, download the image via the HTTP client.
+        If already bytes, return as-is (for backward compat / test fixtures).
+        Falls back to the raw URL bytes if download fails.
+        """
+        if isinstance(image_url, bytes):
+            return image_url
+        if not image_url:
+            return b""
+        if self._http_client is None:
+            return image_url.encode()
+        try:
+            resp = self._http_client.get(image_url, timeout=15)
+            if resp.status_code == 200:
+                return resp.content
+        except httpx.RequestError:
+            pass
+        return image_url.encode()
 
     def _build_card_data(self) -> dict[str, Any] | None:
         """Assemble card data from the current selections.

@@ -106,6 +106,10 @@ def create_app(
         if deps["api_key"]
         else None
     )
+    image_download_client = httpx.Client(
+        headers={"User-Agent": "Mozilla/5.0 (FreeLyFluent)"},
+        timeout=15,
+    )
 
     orchestrator = PipelineOrchestrator(
         cantodict=deps["cantodict"],
@@ -126,6 +130,9 @@ def create_app(
 
     def _get_card_store_or_none() -> "CardStoreProtocol | None":
         return deps["card_store"]
+
+    def _get_image_download_client() -> httpx.Client:
+        return image_download_client
 
     def _get_card_generator():
         if deps["card_generator"] is None:
@@ -164,7 +171,11 @@ def create_app(
                 "index.html",
                 {"error": "No words entered. Paste a list and try again."},
             )
-        session = SessionManager(word_list, card_store=_get_card_store_or_none())
+        session = SessionManager(
+            word_list,
+            card_store=_get_card_store_or_none(),
+            http_client=_get_image_download_client(),
+        )
         session_id = uuid.uuid4().hex
         _sessions[session_id] = session
         return Response(status_code=303, headers={"Location": f"/translate/{session_id}"})
@@ -173,7 +184,11 @@ def create_app(
 
     @app.post("/sessions")
     def start_session(req: SessionStartRequest):
-        session = SessionManager(req.words, card_store=_get_card_store_or_none())
+        session = SessionManager(
+            req.words,
+            card_store=_get_card_store_or_none(),
+            http_client=_get_image_download_client(),
+        )
         session_id = uuid.uuid4().hex
         _sessions[session_id] = session
         return {

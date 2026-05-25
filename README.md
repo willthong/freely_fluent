@@ -18,7 +18,7 @@ The pipeline is:
 
 4. **Audio** — The character is looked up on Wiktionary for audio. If no matching recording is found, the learner records a pronunciation themselves.
 
-5. **Card** — A reversible flashcard is generated via genanki, with the image on one side and the audio on the other. Both sides show the Jyutping.
+5. **Card** — A reversible flashcard is generated via genanki, with the image on one side and the audio on the other. Both sides show the Jyutping. Opus audio (e.g. from Wiktionary) is automatically re-encoded to Vorbis so that Anki's desktop player can play it.
 
 6. **Export** — Throughout the app the learner can export cards generated so far as an `.apkg` file. Cards are persisted in a SQLite database.
 

@@ -69,7 +69,7 @@ One stage of card creation for the current English word — Translate, Image, or
 ## Flagged ambiguities
 
 - "characters" were initially treated as something the user might need to learn. Resolved: characters are an internal lookup key only, never shown on the card face.
-- Audio format mixing (WebM vs OGG/MP3) — user doesn't care so long as Anki plays it. No normalisation needed.
+- Audio format mixing (WebM vs OGG/MP3) — user doesn't care so long as Anki plays it. Opus OGG audio is re-encoded to Vorbis in `CardGenerator._write_media()` because Anki's Qt 5 can't play Opus.
 - Image quality — Brave Search thumbnails are sufficient for flashcard recognition. No follow-to-original needed.
 - Confirm step removed — not needed. The Audio step is the final step before saving.
 
