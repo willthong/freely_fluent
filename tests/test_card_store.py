@@ -232,3 +232,290 @@ def test_card_store_created_at_has_timestamp():
     )
     assert "T" in fc.created_at  # ISO format contains T separator
     assert "+00:00" in fc.created_at or "Z" in fc.created_at
+
+
+# ── Session scoping ──
+
+def test_save_flashcard_records_session_id():
+    """When a Flashcard has a session_id, it is persisted and retrievable."""
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    store = CardStore(tmp.name)
+    fc = store.save_flashcard(
+        Flashcard(
+            english_word="hello",
+            chinese_characters="\u4f60\u597d",
+            jyutping="nei5 hou2",
+            image_data=b"img",
+            audio_data=b"ogg",
+            session_id="sess-abc",
+        )
+    )
+    assert fc.session_id == "sess-abc"
+    retrieved = store.get_flashcard(fc.id)
+    assert retrieved is not None
+    assert retrieved.session_id == "sess-abc"
+
+
+def test_get_by_session_returns_only_matching_cards():
+    """get_by_session returns only cards belonging to the given session."""
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    store = CardStore(tmp.name)
+    store.save_flashcard(
+        Flashcard(
+            english_word="hello",
+            chinese_characters="\u4f60\u597d",
+            jyutping="nei5 hou2",
+            image_data=b"img1",
+            audio_data=b"ogg1",
+            session_id="sess-1",
+        )
+    )
+    store.save_flashcard(
+        Flashcard(
+            english_word="goodbye",
+            chinese_characters="\u518d\u89c1",
+            jyutping="zaai6 gin3",
+            image_data=b"img2",
+            audio_data=b"ogg2",
+            session_id="sess-2",
+        )
+    )
+    store.save_flashcard(
+        Flashcard(
+            english_word="thanks",
+            chinese_characters="\u8b1d\u8b1d",
+            jyutping="mei5 mei5",
+            image_data=b"img3",
+            audio_data=b"ogg3",
+            session_id="sess-1",
+        )
+    )
+    result = store.get_by_session("sess-1")
+    assert len(result) == 2
+    assert {fc.english_word for fc in result} == {"hello", "thanks"}
+
+
+def test_get_by_session_returns_empty_for_unknown_session():
+    """get_by_session returns empty list when no cards match."""
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    store = CardStore(tmp.name)
+    store.save_flashcard(
+        Flashcard(
+            english_word="hello",
+            chinese_characters="\u4f60\u597d",
+            jyutping="nei5 hou2",
+            image_data=b"img",
+            audio_data=b"ogg",
+            session_id="sess-1",
+        )
+    )
+    assert store.get_by_session("sess-999") == []
+
+
+# ── Broken cards cleanup ──
+
+
+def test_delete_broken_cards_removes_non_image_bytes():
+    """delete_broken_cards removes cards whose image_data fails magic detection."""
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    store = CardStore(tmp.name)
+    # Good card (PNG magic bytes)
+    store.save_flashcard(
+        Flashcard(
+            english_word="hello",
+            chinese_characters="\u4f60\u597d",
+            jyutping="nei5 hou2",
+            image_data=b"\x89PNG\r\n\x1a\n good image",
+            audio_data=b"ogg",
+        )
+    )
+    # Broken card (ASCII text instead of image)
+    store.save_flashcard(
+        Flashcard(
+            english_word="world",
+            chinese_characters="\u4e16\u754c",
+            jyutping="sei3 gaai3",
+            image_data=b"HTTP Error 403 - Forbidden",
+            audio_data=b"ogg2",
+        )
+    )
+    # Another broken card
+    store.save_flashcard(
+        Flashcard(
+            english_word="test",
+            chinese_characters="\u6e2c\u8a66",
+            jyutping="cing3 sai3",
+            image_data=b"",
+            audio_data=b"ogg3",
+        )
+    )
+    assert len(store.get_all()) == 3
+    deleted = store.delete_broken_cards()
+    assert deleted == 2  # 2 broken cards removed
+    remaining = store.get_all()
+    assert len(remaining) == 1
+    assert remaining[0].english_word == "hello"
+
+
+def test_delete_broken_cards_no_op_when_all_good():
+    """delete_broken_cards returns 0 when all cards have valid images."""
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    store = CardStore(tmp.name)
+    store.save_flashcard(
+        Flashcard(
+            english_word="hello",
+            chinese_characters="\u4f60\u597d",
+            jyutping="nei5 hou2",
+            image_data=b"\x89PNG\r\n\x1a\n image data",
+            audio_data=b"ogg",
+        )
+    )
+    store.save_flashcard(
+        Flashcard(
+            english_word="goodbye",
+            chinese_characters="\u518d\u89c1",
+            jyutping="zaai6 gin3",
+            image_data=b"\xff\xd8\xff\xe0 JPEG image",
+            audio_data=b"ogg2",
+        )
+    )
+    deleted = store.delete_broken_cards()
+    assert deleted == 0
+    assert len(store.get_all()) == 2
+
+
+def test_delete_broken_cards_in_protocol():
+    """delete_broken_cards is defined on CardStoreProtocol."""
+    methods = {
+        m: getattr(CardStoreProtocol, m)
+        for m in dir(CardStoreProtocol)
+        if not m.startswith("_")
+    }
+    assert "delete_broken_cards" in methods
+
+
+def test_get_by_session_in_protocol():
+    """get_by_session is defined on CardStoreProtocol."""
+    import inspect
+    methods = {
+        m: getattr(CardStoreProtocol, m)
+        for m in dir(CardStoreProtocol)
+        if not m.startswith("_")
+    }
+    assert "get_by_session" in methods
+
+
+def test_flashcard_defaults_session_id_empty():
+    """Flashcard defaults session_id to empty string."""
+    fc = Flashcard()
+    assert fc.session_id == ""
+
+
+# ── Deduplication ──
+
+def test_save_flashcard_deduplicates_by_uniqueness_key():
+    """Saving the same (english_word, chinese_characters, jyutping) twice
+    results in only one card in the store."""
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    store = CardStore(tmp.name)
+    fc1 = store.save_flashcard(
+        Flashcard(
+            english_word="hello",
+            chinese_characters="\u4f60\u597d",
+            jyutping="nei5 hou2",
+            image_data=b"img1",
+            audio_data=b"ogg1",
+        )
+    )
+    fc2 = store.save_flashcard(
+        Flashcard(
+            english_word="hello",
+            chinese_characters="\u4f60\u597d",
+            jyutping="nei5 hou2",
+            image_data=b"img2",
+            audio_data=b"ogg2",
+        )
+    )
+    assert len(store.get_all()) == 1
+    assert fc1.id == fc2.id
+
+
+def test_save_flashcard_upsert_updates_image_and_audio():
+    """A second save with the same uniqueness key updates image_data and
+    audio_data with the new values."""
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    store = CardStore(tmp.name)
+    store.save_flashcard(
+        Flashcard(
+            english_word="hello",
+            chinese_characters="\u4f60\u597d",
+            jyutping="nei5 hou2",
+            image_data=b"img1",
+            audio_data=b"ogg1",
+        )
+    )
+    store.save_flashcard(
+        Flashcard(
+            english_word="hello",
+            chinese_characters="\u4f60\u597d",
+            jyutping="nei5 hou2",
+            image_data=b"img2",
+            audio_data=b"ogg2",
+        )
+    )
+    cards = store.get_all()
+    assert len(cards) == 1
+    assert cards[0].image_data == b"img2"
+    assert cards[0].audio_data == b"ogg2"
+
+
+def test_save_flashcard_different_jyutping_is_separate_card():
+    """Same word + characters but different jyutping creates a separate card."""
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    store = CardStore(tmp.name)
+    store.save_flashcard(
+        Flashcard(
+            english_word="word",
+            chinese_characters="\u8aaa",
+            jyutping="joi1",
+            image_data=b"img1",
+            audio_data=b"ogg1",
+        )
+    )
+    store.save_flashcard(
+        Flashcard(
+            english_word="word",
+            chinese_characters="\u8aaa",
+            jyutping="joi2",
+            image_data=b"img2",
+            audio_data=b"ogg2",
+        )
+    )
+    cards = store.get_all()
+    assert len(cards) == 2
+
+
+def test_save_flashcard_different_word_is_separate_card():
+    """Different english_word creates a separate card even with same chars."""
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    store = CardStore(tmp.name)
+    store.save_flashcard(
+        Flashcard(
+            english_word="hello",
+            chinese_characters="\u4f60\u597d",
+            jyutping="nei5 hou2",
+            image_data=b"img1",
+            audio_data=b"ogg1",
+        )
+    )
+    store.save_flashcard(
+        Flashcard(
+            english_word="hi",
+            chinese_characters="\u4f60\u597d",
+            jyutping="nei5 hou2",
+            image_data=b"img2",
+            audio_data=b"ogg2",
+        )
+    )
+    cards = store.get_all()
+    assert len(cards) == 2

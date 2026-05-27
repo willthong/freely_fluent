@@ -37,6 +37,7 @@ class SessionManager:
         self._selected_audio: bytes | None = None
         self._recording: bytes | None = None
         self._image_offset = 0
+        self._session_id: str = ""
 
     @property
     def is_complete(self) -> bool:
@@ -138,6 +139,7 @@ class SessionManager:
             jyutping=card_data["jyutping"],
             image_data=image_data,
             audio_data=card_data["audio"],
+            session_id=self._session_id,
         )
 
     def _decode_brave_redirect_url(self, image_url: str) -> str | None:

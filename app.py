@@ -184,6 +184,7 @@ def create_app(
             http_client=_get_image_download_client(),
         )
         session_id = uuid.uuid4().hex
+        session._session_id = session_id
         _sessions[session_id] = session
         return Response(status_code=303, headers={"Location": f"/translate/{session_id}"})
 
@@ -197,6 +198,7 @@ def create_app(
             http_client=_get_image_download_client(),
         )
         session_id = uuid.uuid4().hex
+        session._session_id = session_id
         _sessions[session_id] = session
         return {
             "session_id": session_id,
@@ -549,9 +551,13 @@ def create_app(
     # ── Export ──
 
     @app.get("/export")
-    def export_apkg():
+    def export_apkg(request: Request):
         store = _get_card_store()
-        flashcards = store.get_all()
+        session_id = request.query_params.get("session_id")
+        if session_id:
+            flashcards = store.get_by_session(session_id)
+        else:
+            flashcards = store.get_all()
         generator = _get_card_generator()
         tmp = tempfile.NamedTemporaryFile(suffix=".apkg", delete=False)
         tmp_path = tmp.name
@@ -577,11 +583,16 @@ def create_app(
         if session is None:
             return Response(status_code=404)
         store = _get_card_store()
-        cards = store.get_all()
+        session_key = session._session_id or session_id
+        cards = store.get_by_session(session_key)
         return templates.TemplateResponse(
             request,
             "completion.html",
-            {"cards": cards},
+            {
+                "cards": cards,
+                "card_count": len(cards),
+                "export_url": f"/export?session_id={session_key}",
+            },
         )
 
     # ── Health ──

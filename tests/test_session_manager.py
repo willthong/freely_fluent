@@ -9,7 +9,7 @@ import tempfile
 
 import pytest
 
-from card_store import CardStore, CardStoreProtocol
+from card_store import CardStore, CardStoreProtocol, Flashcard
 from session_manager import SessionManager
 
 
@@ -578,3 +578,163 @@ def test_select_audio_no_recording_no_save():
     result = sm.select_audio(None)
     assert result is None
     assert len(store.get_all()) == 0
+
+
+# ── Session ID propagation ──
+
+
+def test_select_audio_passes_session_id_to_flashcard():
+    """When SessionManager has a session_id, the saved Flashcard carries it."""
+    store = _make_store()
+    sm = SessionManager(["hello"], card_store=store)
+    sm._session_id = "sess-abc-123"
+    sm.select_entry({"chinese": "\u4f60\u597d", "jyutping": "nei5 hou2"})
+    sm.add_image({"thumbnail_url": b"\x89PNG"})
+    result = sm.select_audio(b"OggS")
+    assert result is not None
+    assert result.session_id == "sess-abc-123"
+    # Also check it's in the store
+    retrieved = store.get_by_session("sess-abc-123")
+    assert len(retrieved) == 1
+    assert retrieved[0].english_word == "hello"
+
+
+def test_select_audio_no_session_id_defaults_empty():
+    """Without _session_id set, the Flashcard gets an empty session_id."""
+    store = _make_store()
+    sm = SessionManager(["hello"], card_store=store)
+    sm.select_entry({"chinese": "\u4f60\u597d", "jyutping": "nei5 hou2"})
+    sm.add_image({"thumbnail_url": b"\x89PNG"})
+    result = sm.select_audio(b"OggS")
+    assert result is not None
+    assert result.session_id == ""
+
+
+def test_two_words_different_sessions_not_deduped():
+    """Same word in different sessions should still deduplicate within
+    the same uniqueness key, but get_by_session separates them correctly."""
+    store = _make_store()
+    sm1 = SessionManager(["hello"], card_store=store)
+    sm1._session_id = "sess-1"
+    sm1.select_entry({"chinese": "\u4f60\u597d", "jyutping": "nei5 hou2"})
+    sm1.add_image({"thumbnail_url": b"\x89PNG img1"})
+    sm1.select_audio(b"ogg1")
+
+    # Second session saves same word — UPSERT will overwrite, but
+    # session_id also updates (that's the UPSERT semantics)
+    sm2 = SessionManager(["hello"], card_store=store)
+    sm2._session_id = "sess-2"
+    sm2.select_entry({"chinese": "\u4f60\u597d", "jyutping": "nei5 hou2"})
+    sm2.add_image({"thumbnail_url": b"\x89PNG img2"})
+    sm2.select_audio(b"ogg2")
+
+    # After UPSERT, only one row exists (with sess-2's data)
+    assert len(store.get_all()) == 1
+    cards_s1 = store.get_by_session("sess-1")
+    cards_s2 = store.get_by_session("sess-2")
+    assert len(cards_s1) == 0
+    assert len(cards_s2) == 1
+    assert cards_s2[0].image_data == b"\x89PNG img2"
+
+
+# ── Export route scoping (integration) ──
+
+
+def _mock_cantodict():
+    from unittest.mock import Mock
+    from cantodict_lookup import CantoneseDictionary
+    m = Mock(spec=CantoneseDictionary)
+    m.lookup = Mock(return_value=[{"chinese": "\u4f60\u597d", "jyutping": "nei5 hou2"}])
+    return m
+
+
+def test_export_with_session_id_returns_only_session_cards():
+    """GET /export?session_id=X uses get_by_session, not get_all."""
+    from unittest.mock import Mock
+    from fastapi.testclient import TestClient
+    from app import create_app
+
+    store = _make_store()
+    cantodict = _mock_cantodict()
+    card_gen = Mock()
+    card_gen.generate_apkg = Mock()
+    app = create_app(cantodict=cantodict, card_store=store, card_generator=card_gen)
+    client = TestClient(app)
+
+    # Create session-1 with "hello"
+    resp = client.post("/sessions", json={"words": ["hello"]})
+    sid1 = resp.json()["session_id"]
+    client.post(f"/sessions/{sid1}/entries", json={"chinese": "\u4f60\u597d"})
+    # Add image (we need a valid index, but the mock won't return results;
+    # so we use the raw store to place cards directly)
+    store.save_flashcard(
+        Flashcard(
+            english_word="hello", chinese_characters="\u4f60\u597d",
+            jyutping="nei5 hou2", image_data=b"\x89PNG", audio_data=b"ogg1",
+            session_id=sid1,
+        )
+    )
+
+    # Create session-2 with "goodbye"
+    resp = client.post("/sessions", json={"words": ["goodbye"]})
+    sid2 = resp.json()["session_id"]
+    store.save_flashcard(
+        Flashcard(
+            english_word="goodbye", chinese_characters="\u518d\u89c1",
+            jyutping="zaai6 gin3", image_data=b"\x89PNG2", audio_data=b"ogg2",
+            session_id=sid2,
+        )
+    )
+
+    # Export with session_id=sid1 should only return cards from sess-1
+    export_resp = client.get(f"/export?session_id={sid1}")
+    assert export_resp.status_code == 200
+    # Verify generate_apkg was called with only session-1 cards
+    call_args = card_gen.generate_apkg.call_args
+    assert len(call_args[0][0]) == 1  # 1 flashcard in the list
+    assert call_args[0][0][0].english_word == "hello"
+
+    # Reset mock for next call
+    card_gen.generate_apkg.reset_mock()
+
+    # Export without session_id returns all
+    export_all = client.get("/export")
+    assert export_all.status_code == 200
+    call_args = card_gen.generate_apkg.call_args
+    assert len(call_args[0][0]) == 2  # both flashcards
+
+    # Verify: get_by_session gives correct subset
+    assert len(store.get_by_session(sid1)) == 1
+    assert store.get_by_session(sid1)[0].english_word == "hello"
+    assert len(store.get_by_session(sid2)) == 1
+    assert store.get_by_session(sid2)[0].english_word == "goodbye"
+
+
+def test_completion_passes_session_id_to_export():
+    """Completion page includes session_id in the export link."""
+    from fastapi.testclient import TestClient
+    from app import create_app
+
+    store = _make_store()
+    cantodict = _mock_cantodict()
+    app = create_app(cantodict=cantodict, card_store=store)
+    client = TestClient(app)
+
+    resp = client.post("/sessions", json={"words": ["hello"]})
+    sid = resp.json()["session_id"]
+
+    # Place a card in the store with this session_id
+    store.save_flashcard(
+        Flashcard(
+            english_word="hello", chinese_characters="\u4f60\u597d",
+            jyutping="nei5 hou2", image_data=b"\x89PNG", audio_data=b"ogg",
+            session_id=sid,
+        )
+    )
+
+    complete_resp = client.get(f"/complete/{sid}")
+    assert complete_resp.status_code == 200
+    html = complete_resp.text
+    # Export link should contain the session_id
+    assert "export" in html
+    assert sid in html
