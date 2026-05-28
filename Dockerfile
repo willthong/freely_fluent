@@ -1,7 +1,9 @@
 FROM python:3.14-slim
 
-# Install uv package manager
-RUN pip install --no-cache-dir uv
+# Install uv package manager and ffmpeg (for Opus→Vorbis audio re-encoding)
+RUN pip install --no-cache-dir uv && \
+    apt-get update && apt-get install -y --no-install-recommends ffmpeg && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

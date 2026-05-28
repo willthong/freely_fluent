@@ -33,7 +33,7 @@ class CardGenerator:
             audio_basename = os.path.basename(audio_path)
             image_basename = os.path.basename(image_path)
 
-            front_field = f"{{{{Audio:{audio_basename}}}}}<br>{fc.jyutping}"
+            front_field = f'<audio src="{audio_basename}" autoplay="1"></audio><br>{fc.jyutping}'
             back_field = f'<img src="{image_basename}"><br>{fc.jyutping}'
 
             note = genanki.Note(model=model, fields=[front_field, back_field])
@@ -49,10 +49,13 @@ class CardGenerator:
     @staticmethod
     def _write_media(data: bytes, ext: str, media_dir: str) -> str:
         digest = hashlib.sha1(data).hexdigest()
-        path = os.path.join(media_dir, f"{digest}.{ext}")
         # Re-encode Opus audio to Vorbis (Anki's Qt 5 can't play Opus)
+        # Handles both OGG/Opus (Wiktionary) and WebM/Opus (browser recordings)
         if ext == "ogg" and CardGenerator._is_opus(data):
-            data = CardGenerator._opus_to_vorbis(data)
+            data, ext = CardGenerator._opus_to_vorbis(data, "ogg")
+        elif ext == "webm" and CardGenerator._is_webm_opus(data):
+            data, ext = CardGenerator._webm_opus_to_vorbis(data)
+        path = os.path.join(media_dir, f"{digest}.{ext}")
         with open(path, "wb") as f:
             f.write(data)
         return path
@@ -81,10 +84,44 @@ class CardGenerator:
         return b"OpusHead" in data
 
     @staticmethod
-    def _opus_to_vorbis(data: bytes) -> bytes:
-        """Convert Opus OGG to Vorbis OGG via ffmpeg."""
-        tmp_in = tempfile.NamedTemporaryFile(suffix=".ogg", delete=False)
+    def _is_webm_opus(data: bytes) -> bool:
+        """Detect if WebM data contains Opus encoding.
+
+        WebM files start with a RIFF header and contain an OpusHead segment.
+        """
+        return data[:4] == b"RIFF" and b"OpusHead" in data
+
+    @staticmethod
+    def _opus_to_vorbis(data: bytes, input_suffix: str) -> tuple[bytes, str]:
+        """Convert Opus audio to Vorbis OGG via ffmpeg.
+
+        Returns (converted_data, output_extension). On failure returns
+        (original_data, input_extension) so the caller's ext variable is preserved.
+        """
+        tmp_in = tempfile.NamedTemporaryFile(suffix=input_suffix, delete=False)
         tmp_out = tempfile.NamedTemporaryFile(suffix=".ogg", delete=False)
+        converted = CardGenerator._convert_to_vorbis(tmp_in, tmp_out, data)
+        if converted is data:
+            # Conversion failed — keep original data and original extension
+            return (data, "ogg" if input_suffix == ".ogg" else input_suffix.lstrip("."))
+        return (converted, "ogg")
+
+    @staticmethod
+    def _webm_opus_to_vorbis(data: bytes) -> tuple[bytes, str]:
+        """Convert WebM/Opus to Vorbis OGG via ffmpeg. Returns (data, 'ogg')."""
+        tmp_in = tempfile.NamedTemporaryFile(suffix=".webm", delete=False)
+        tmp_out = tempfile.NamedTemporaryFile(suffix=".ogg", delete=False)
+        converted = CardGenerator._convert_to_vorbis(tmp_in, tmp_out, data)
+        if converted is data:
+            return (data, "webm")
+        return (converted, "ogg")
+
+    @staticmethod
+    def _convert_to_vorbis(tmp_in, tmp_out, data: bytes) -> bytes:
+        """Shared ffmpeg conversion logic for Opus → Vorbis.
+
+        Returns the converted Vorbis data on success, or the original data on failure.
+        """
         try:
             tmp_in.write(data)
             tmp_in.close()

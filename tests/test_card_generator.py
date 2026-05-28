@@ -68,7 +68,7 @@ def test_card_directions_have_correct_fields():
         # Check that Audio tag is in one field and img tag in the other
         # We don't know which is which from the field order alone,
         # but one field should have Audio and the other should have img
-        has_audio = any("Audio:" in f for f in fields)
+        has_audio = any('<audio src=' in f for f in fields)
         has_image = any("img src=" in f for f in fields)
         assert has_audio
         assert has_image
