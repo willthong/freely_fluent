@@ -28,6 +28,7 @@ from audio_service import AudioService
 from card_generator import CardGenerator
 from card_store import CardStore, CardStoreProtocol
 from cantodict_lookup import CantoneseDictionary
+from jyutping_format import format_jyutping
 from session_manager import SessionManager
 from wiktionary_audio import WiktionaryAudio
 
@@ -68,9 +69,9 @@ def create_app(
 
     app = FastAPI(title="Freely Fluent")
 
-    templates = Jinja2Templates(
-        env=Environment(loader=FileSystemLoader("templates"), cache_size=0),
-    )
+    env = Environment(loader=FileSystemLoader("templates"), cache_size=0)
+    env.filters["format_jyutping"] = format_jyutping
+    templates = Jinja2Templates(env=env)
 
     # Prevent browser caching of HTML pages during development
     @app.middleware("http")

@@ -123,7 +123,7 @@ def test_translate_page_renders_with_entries():
     assert r.status_code == 200
     assert "text/html" in r.headers["content-type"]
     assert "你好" in r.text
-    assert "nei5 hou2" in r.text
+    assert "nei<sup>5</sup> hou<sup>2</sup>" in r.text
     assert "hello" in r.text.lower() or "definition" in r.text.lower()
 
 

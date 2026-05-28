@@ -10,6 +10,7 @@ import tempfile
 import genanki
 
 from card_store import Flashcard
+from jyutping_format import format_jyutping
 
 _DECK_ID = int.from_bytes(hashlib.sha1(b"cantonese_words").digest()[:4], "little")
 
@@ -33,8 +34,9 @@ class CardGenerator:
             audio_basename = os.path.basename(audio_path)
             image_basename = os.path.basename(image_path)
 
-            front_field = f'<audio src="{audio_basename}" autoplay="1"></audio><br>{fc.jyutping}'
-            back_field = f'<img src="{image_basename}"><br>{fc.jyutping}'
+            jyutping_html = format_jyutping(fc.jyutping)
+            front_field = f'<audio src="{audio_basename}" autoplay="1"></audio><br>{jyutping_html}'
+            back_field = f'<img src="{image_basename}"><br>{jyutping_html}'
 
             note = genanki.Note(model=model, fields=[front_field, back_field])
             deck.add_note(note)

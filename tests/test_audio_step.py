@@ -128,7 +128,7 @@ def test_audio_step_page_renders_with_player():
 
     body = r.text
     assert "Cantonese Pronunciation" in body
-    assert "nei5 hou2" in body  # Jyutping from selected entry
+    assert "nei<sup>5</sup> hou<sup>2</sup>" in body  # Jyutping from selected entry
     assert "你好" in body  # Characters from selected entry
     assert 'type="audio/ogg"' in body  # Audio player source
     assert "Confirm" in body  # Confirm button
@@ -181,7 +181,7 @@ def test_audio_step_page_shows_no_audio_available():
     assert r.status_code == 200
     body = r.text
     assert "Cantonese Pronunciation" in body
-    assert "saan1" in body  # Jyutping still shown
+    assert "saan<sup>1</sup>" in body  # Jyutping still shown
     assert "山" in body
     assert "no audio" in body.lower() or "not available" in body.lower()
     assert "Skip" in body

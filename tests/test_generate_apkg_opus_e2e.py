@@ -123,8 +123,8 @@ def test_generate_apkg_with_opus_audio_produces_playable_card():
 
             assert audio_basename in audio_field
             assert image_basename in image_field
-            assert "nei5 hou2" in audio_field
-            assert "nei5 hou2" in image_field
+            assert "nei<sup>5</sup> hou<sup>2</sup>" in audio_field
+            assert "nei<sup>5</sup> hou<sup>2</sup>" in image_field
 
             # 7. English words and Chinese characters never appear on the card face
             for field in fields:

@@ -9,7 +9,7 @@
     <label>
       <input type="radio" name="chinese" value="{{ entry.chinese }}">
       <strong>{{ entry.chinese }}</strong>
-      <span class="jyutping">[{{ entry.jyutping }}]</span>
+      <span class="jyutping">[{{ entry.jyutping|format_jyutping }}]</span>
       — {{ entry.definition }}
     </label>
   </div>

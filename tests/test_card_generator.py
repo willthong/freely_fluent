@@ -1,4 +1,6 @@
 import tempfile
+import zipfile
+import sqlite3
 
 from card_generator import CardGenerator
 from card_store import Flashcard
@@ -61,9 +63,9 @@ def test_card_directions_have_correct_fields():
             assert "hello" not in field
             assert "你好" not in field
 
-        # Check that Jyutping appears in both fields
-        assert "nei5hou2" in fields[0]
-        assert "nei5hou2" in fields[1]
+        # Check that Jyutping appears in both fields (formatted as superscript)
+        assert "nei<sup>5</sup>hou<sup>2</sup>" in fields[0]
+        assert "nei<sup>5</sup>hou<sup>2</sup>" in fields[1]
 
         # Check that Audio tag is in one field and img tag in the other
         # We don't know which is which from the field order alone,
@@ -112,9 +114,9 @@ def test_multiple_flashcards_produce_correct_card_count():
 
     generator = CardGenerator()
     flashcards = [
-        Flashcard("hello", "你好", "nei5hou2", b"img1", b"aud1"),
-        Flashcard("bye", "再見", "zoii3gin3", b"img2", b"aud2"),
-        Flashcard("thanks", "多謝", "do1ze6", b"img3", b"aud3"),
+        Flashcard(english_word="hello", chinese_characters="你好", jyutping="nei5hou2", image_data=b"img1", audio_data=b"aud1"),
+        Flashcard(english_word="bye", chinese_characters="再見", jyutping="zoii3gin3", image_data=b"img2", audio_data=b"aud2"),
+        Flashcard(english_word="thanks", chinese_characters="多謝", jyutping="do1ze6", image_data=b"img3", audio_data=b"aud3"),
     ]
 
     with tempfile.NamedTemporaryFile(suffix=".apkg", delete=False) as tmp:
@@ -134,5 +136,71 @@ def test_multiple_flashcards_produce_correct_card_count():
 
         assert note_count == 3  # one note per flashcard
         assert card_count == 6  # two cards per note
+
+        conn.close()
+
+
+def test_card_fields_contain_superscript_jyutping():
+    """Jyutping tone numbers in card fields are formatted as HTML superscripts."""
+    generator = CardGenerator()
+    flashcard = Flashcard(
+        english_word="hello",
+        chinese_characters="你好",
+        jyutping="nei5hou2",
+        image_data=b"iVBOR",
+        audio_data=b"OggS",
+    )
+
+    with tempfile.NamedTemporaryFile(suffix=".apkg", delete=False) as tmp:
+        path = tmp.name
+
+    generator.generate_apkg([flashcard], path)
+
+    with zipfile.ZipFile(path, "r") as z:
+        tmp_dir = tempfile.mkdtemp()
+        db_path = z.extract("collection.anki2", tmp_dir)
+        conn = sqlite3.connect(db_path)
+
+        notes = conn.execute("SELECT flds FROM notes").fetchone()
+        fields = notes[0].split("\x1f")
+
+        # Both fields (front and back) must have superscript Jyutping
+        expected = "nei<sup>5</sup>hou<sup>2</sup>"
+        assert expected in fields[0]
+        assert expected in fields[1]
+
+        conn.close()
+
+
+def test_card_fields_handle_jyutping_asterisk():
+    """Jyutping with asterisk: card fields show the first number, not the one after *."""
+    generator = CardGenerator()
+    flashcard = Flashcard(
+        english_word="test",
+        chinese_characters="測",
+        jyutping="cek3*1",
+        image_data=b"iVBOR",
+        audio_data=b"OggS",
+    )
+
+    with tempfile.NamedTemporaryFile(suffix=".apkg", delete=False) as tmp:
+        path = tmp.name
+
+    generator.generate_apkg([flashcard], path)
+
+    with zipfile.ZipFile(path, "r") as z:
+        tmp_dir = tempfile.mkdtemp()
+        db_path = z.extract("collection.anki2", tmp_dir)
+        conn = sqlite3.connect(db_path)
+
+        notes = conn.execute("SELECT flds FROM notes").fetchone()
+        fields = notes[0].split("\x1f")
+
+        expected = "cek<sup>3</sup>"
+        assert expected in fields[0]
+        assert expected in fields[1]
+        # The asterisk and alternative number should NOT appear
+        assert "*1" not in fields[0]
+        assert "*1" not in fields[1]
 
         conn.close()
