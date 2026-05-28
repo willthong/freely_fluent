@@ -66,8 +66,17 @@ class PipelineOrchestrator:
     def play_audio(
         self, session: "SessionManager", url: str
     ) -> bytes | None:
-        """Download audio from *url* via AudioService for playback."""
-        return self._audio_svc.download_audio(url)
+        """Download audio from *url* via AudioService for playback.
+
+        Persists the downloaded bytes to ``session._selected_audio`` so
+        that confirm_audio can reuse them instead of re-fetching Wiktionary
+        HTML and re-downloading. This avoids transient failures during
+        confirmation (rate limits, timeouts, HTML parse failures).
+        """
+        audio_bytes = self._audio_svc.download_audio(url)
+        if audio_bytes is not None:
+            session._selected_audio = audio_bytes
+        return audio_bytes
 
     def confirm_audio(
         self, session: "SessionManager", source: str, audio_bytes: bytes | None = None
