@@ -9,6 +9,7 @@
   <li>
     <strong>{{ card.chinese_characters }}</strong>
     <span class="jyutping">[{{ card.jyutping }}]</span>
+    {% if card.part_of_speech %}<em>({{ card.part_of_speech }})</em>{% endif %}
     — {{ card.english_word }}
   </li>
   {% endfor %}

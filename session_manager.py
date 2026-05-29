@@ -38,6 +38,7 @@ class SessionManager:
         self._recording: bytes | None = None
         self._image_offset = 0
         self._session_id: str = ""
+        self._include_pos: bool = True
 
     @property
     def is_complete(self) -> bool:
@@ -104,15 +105,18 @@ class SessionManager:
         card_data = self._build_card_data()
         if card_data is None:
             return None
-        # Resolve image once, share result between both code paths.
-        first_image = card_data["images"][0]
-        image_url = first_image.get("thumbnail_url", first_image.get("url", ""))
-        image_data = self._resolve_image(image_url)
-        if image_data is None:
+        # Resolve all images, share results between both code paths.
+        image_data_list: list[bytes] = []
+        for img in card_data["images"]:
+            img_url = img.get("thumbnail_url", img.get("url", ""))
+            img_bytes = self._resolve_image(img_url)
+            if img_bytes is not None:
+                image_data_list.append(img_bytes)
+        if not image_data_list:
             return None
         self._advance_to_next_word()
         if self._card_store is not None:
-            flashcard = self._build_flashcard(card_data, image_data)
+            flashcard = self._build_flashcard(card_data, image_data_list)
             return self._card_store.save_flashcard(flashcard)
         return card_data
 
@@ -124,12 +128,16 @@ class SessionManager:
         """Retrieve the saved browser recording, or None."""
         return self._recording
 
+    def set_include_pos(self, value: bool) -> None:
+        """Set whether part-of-speech hints should appear on cards."""
+        self._include_pos = value
+
     def skip(self) -> None:
         """Discard the current word and advance to the next."""
         self._advance_to_next_word()
 
-    def _build_flashcard(self, card_data: dict[str, Any], image_data: bytes) -> "Flashcard":
-        """Build a Flashcard dataclass from card data dict and pre-resolved image bytes."""
+    def _build_flashcard(self, card_data: dict[str, Any], image_data_list: list[bytes]) -> "Flashcard":
+        """Build a Flashcard dataclass from card data dict and pre-resolved image bytes list."""
         # Import at method level to avoid circular import at module load
         from card_store import Flashcard
 
@@ -137,7 +145,8 @@ class SessionManager:
             english_word=card_data["english_word"],
             chinese_characters=card_data["chinese_characters"],
             jyutping=card_data["jyutping"],
-            image_data=image_data,
+            part_of_speech=card_data.get("part_of_speech", ""),
+            image_data=image_data_list,
             audio_data=card_data["audio"],
             session_id=self._session_id,
         )
@@ -214,10 +223,14 @@ class SessionManager:
         audio = self._selected_audio or self._recording
         if audio is None:
             return None
+        pos = self._selected_entry.get("part_of_speech", "")
+        if not self._include_pos:
+            pos = ""
         return {
             "english_word": self.current_word,
             "chinese_characters": self._selected_entry["chinese"],
             "jyutping": self._selected_entry["jyutping"],
+            "part_of_speech": pos,
             "images": list(self._selected_images),
             "audio": audio,
         }

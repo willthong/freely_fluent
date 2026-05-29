@@ -55,6 +55,10 @@ class ImageSelectRequest(BaseModel):
     result_index: int
 
 
+class PosToggleRequest(BaseModel):
+    include_pos: bool
+
+
 def create_app(
     cantodict: CantoneseDictionary | None = None,
     card_store: CardStore | None = None,
@@ -236,7 +240,17 @@ def create_app(
             "selected_entry": session.selected_entry,
             "selected_images": session.selected_images,
             "image_offset": session.image_offset,
+            "include_pos": session._include_pos,
         }
+
+    @app.post("/sessions/{session_id}/pos-toggle")
+    def toggle_pos(session_id: str, req: PosToggleRequest):
+        """Toggle whether part-of-speech hints appear on cards."""
+        session = _sessions.get(session_id)
+        if session is None:
+            return Response(status_code=404)
+        session.set_include_pos(req.include_pos)
+        return {"include_pos": session._include_pos}
 
     @app.delete("/sessions/{session_id}")
     def delete_session(session_id: str):
@@ -266,6 +280,7 @@ def create_app(
                 "session_id": session_id,
                 "english_word": session.current_word,
                 "entries": entries,
+                "include_pos": session._include_pos,
             },
         )
 
@@ -455,6 +470,7 @@ def create_app(
         if session.current_step != "audio":
             return Response(status_code=400)
         jyutping = session.selected_entry.get("jyutping", "")
+        part_of_speech = session.selected_entry.get("part_of_speech", "")
         url = _get_orchestrator().fetch_wiktionary_audio_url(session)
         return templates.TemplateResponse(
             request,
@@ -464,6 +480,7 @@ def create_app(
                 "characters": characters,
                 "jyutping": jyutping,
                 "audio_url": url,
+                "part_of_speech": part_of_speech,
             },
         )
 

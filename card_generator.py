@@ -1,4 +1,8 @@
-"""Build genanki reversed cards from flashcards."""
+"""Build genanki reversed cards from flashcards.
+
+Custom note type with 4 fields (Jyutping, Images, Audio, PartOfSpeech)
+and 2 card templates (Comprehension and Production).
+"""
 
 from __future__ import annotations
 
@@ -14,6 +18,48 @@ from jyutping_format import format_jyutping
 
 _DECK_ID = int.from_bytes(hashlib.sha1(b"cantonese_words").digest()[:4], "little")
 
+_NOTE_TYPE_ID = int.from_bytes(hashlib.sha1(b"freely_fluent_card").digest()[:4], "little")
+
+_MODEL = genanki.Model(
+    _NOTE_TYPE_ID,
+    "FreelyFluentCard",
+    fields=[
+        {"name": "Jyutping"},
+        {"name": "Images"},
+        {"name": "Audio"},
+        {"name": "PartOfSpeech"},
+    ],
+    templates=[
+        {
+            "name": "Comprehension",
+            "qfmt": "{{Audio}}<br>{{Jyutping}}{{#PartOfSpeech}} <em>({{PartOfSpeech}})</em>{{/PartOfSpeech}}",
+            "afmt": "{{FrontSide}}<hr id=\"answer\">{{Images}}<br>{{Jyutping}}{{#PartOfSpeech}} <em>({{PartOfSpeech}})</em>{{/PartOfSpeech}}<br><audio src=\"{{Audio}}\"></audio>",
+        },
+        {
+            "name": "Production",
+            "qfmt": "{{Images}}{{#PartOfSpeech}}<br><em>({{PartOfSpeech}})</em>{{/PartOfSpeech}}",
+            "afmt": "{{FrontSide}}<hr id=\"answer\">{{Jyutping}}{{#PartOfSpeech}} <em>({{PartOfSpeech}})</em>{{/PartOfSpeech}}<br><audio src=\"{{Audio}}\"></audio>",
+        },
+    ],
+    css="""
+    .card {
+        font-family: arial, sans-serif;
+        font-size: 20px;
+        text-align: center;
+        color: black;
+        background-color: white;
+    }
+    img {
+        max-width: 600px;
+        max-height: 400px;
+    }
+    em {
+        color: #666;
+        font-size: 16px;
+    }
+    """,
+)
+
 
 class CardGenerator:
     """Assembles flashcards into a self-contained .apkg."""
@@ -22,27 +68,32 @@ class CardGenerator:
         self, flashcards: list[Flashcard], output_path: str
     ) -> int:
         deck = genanki.Deck(_DECK_ID, "cantonese_words")
-        model = genanki.BASIC_AND_REVERSED_CARD_MODEL
 
         media_dir = tempfile.mkdtemp()
         media_files: list[str] = []
 
         for fc in flashcards:
             audio_path = self._write_media(fc.audio_data, self._guess_audio_ext(fc.audio_data), media_dir)
-            image_path = self._write_media(fc.image_data, self._guess_image_ext(fc.image_data), media_dir)
-
             audio_basename = os.path.basename(audio_path)
-            image_basename = os.path.basename(image_path)
+            media_files.append(audio_path)
+
+            # Write all images to media folder
+            image_basenames: list[str] = []
+            for img_data in fc.image_data:
+                image_path = self._write_media(img_data, self._guess_image_ext(img_data), media_dir)
+                image_basenames.append(os.path.basename(image_path))
+                media_files.append(image_path)
 
             jyutping_html = format_jyutping(fc.jyutping)
-            front_field = f'<audio src="{audio_basename}" autoplay="1"></audio><br>{jyutping_html}'
-            back_field = f'<img src="{image_basename}"><br>{jyutping_html}'
+            all_img_tags = "".join(f'<img src="{bn}">' for bn in image_basenames) if image_basenames else ""
+            audio_tag = f'<audio src="{audio_basename}">'
+            pos = fc.part_of_speech
 
-            note = genanki.Note(model=model, fields=[front_field, back_field])
+            note = genanki.Note(
+                model=_MODEL,
+                fields=[jyutping_html, all_img_tags, audio_tag, pos],
+            )
             deck.add_note(note)
-
-            media_files.append(audio_path)
-            media_files.append(image_path)
 
         package = genanki.Package(deck, media_files=media_files)
         package.write_to_file(output_path)

@@ -394,7 +394,7 @@ def test_select_audio_download_200_saves_real_bytes():
     sm.add_image({"thumbnail_url": "https://example.com/img.jpg"})
     result = sm.select_audio(b"OggS")
     assert result is not None
-    assert result.image_data == real_image
+    assert result.image_data == [real_image]
     assert sm.current_word is None  # only word, now complete
     assert len(store.get_all()) == 1
 
@@ -478,11 +478,11 @@ def test_select_audio_saves_via_card_store():
     assert retrieved.jyutping == "nei5 hou2"
     assert retrieved.audio_data == b"OggS"
     # image_data must be real bytes, not a URL string
-    assert b"\x89PNG" in retrieved.image_data
+    assert b"\x89PNG" in retrieved.image_data[0]
 
 
 def test_select_audio_saves_image_data_from_first_image():
-    """Saved Flashcard image_data is the image bytes from first selected image."""
+    """Saved Flashcard image_data includes all selected images."""
     store = _make_store()
     sm = SessionManager(["hello"], card_store=store)
     sm.select_entry({"chinese": "\u4f60\u597d", "jyutping": "nei5 hou2"})
@@ -490,7 +490,7 @@ def test_select_audio_saves_image_data_from_first_image():
     sm.add_image({"thumbnail_url": b"\x89PNG second image"})
     result = sm.select_audio(b"OggS")
     assert result is not None
-    assert result.image_data == b"\x89PNG first image"
+    assert result.image_data == [b"\x89PNG first image", b"\x89PNG second image"]
 
 
 def test_select_audio_no_save_when_fields_missing():
@@ -634,7 +634,47 @@ def test_two_words_different_sessions_not_deduped():
     cards_s2 = store.get_by_session("sess-2")
     assert len(cards_s1) == 0
     assert len(cards_s2) == 1
-    assert cards_s2[0].image_data == b"\x89PNG img2"
+    assert cards_s2[0].image_data == [b"\x89PNG img2"]
+
+
+def test_e2e_multiple_images_round_trip():
+    """Full pipeline: add multiple images, save to store, retrieve,
+    generate apkg, verify images appear in card fields."""
+    import zipfile as zf
+    import sqlite3
+
+    from card_generator import CardGenerator
+
+    store = _make_store()
+    sm = SessionManager(["hello"], card_store=store)
+    sm.select_entry({"chinese": "\u4f60\u597d", "jyutping": "nei5 hou2"})
+    sm.add_image({"thumbnail_url": b"\x89PNG\r\n\x1a\n image1 data"})
+    sm.add_image({"thumbnail_url": b"\xff\xd8\xff\xe0 image2 data"})
+    sm.add_image({"thumbnail_url": b"\x89PNG\r\n\x1a\n image3 data"})
+    sm.select_audio(b"OggS audio data")
+
+    # Verify stored card has all 3 images
+    cards = store.get_all()
+    assert len(cards) == 1
+    assert len(cards[0].image_data) == 3
+
+    # Generate apkg from the stored cards
+    generator = CardGenerator()
+    tmp = tempfile.NamedTemporaryFile(suffix=".apkg", delete=False)
+    path = tmp.name
+    count = generator.generate_apkg(cards, path)
+    assert count == 2  # reversed pair
+
+    # Verify images appear in card fields
+    with zf.ZipFile(path, "r") as z:
+        db_path = z.extract("collection.anki2", tempfile.mkdtemp())
+        conn = sqlite3.connect(db_path)
+        notes = conn.execute("SELECT flds FROM notes").fetchone()
+        fields = notes[0].split("\x1f")
+        combined = " ".join(fields)
+        img_count = combined.count("<img src=")
+        assert img_count >= 3, f"Expected 3 img tags, got {img_count}"
+        conn.close()
 
 
 # ── Export route scoping (integration) ──
@@ -670,7 +710,7 @@ def test_export_with_session_id_returns_only_session_cards():
     store.save_flashcard(
         Flashcard(
             english_word="hello", chinese_characters="\u4f60\u597d",
-            jyutping="nei5 hou2", image_data=b"\x89PNG", audio_data=b"ogg1",
+            jyutping="nei5 hou2", image_data=[b"\x89PNG"], audio_data=b"ogg1",
             session_id=sid1,
         )
     )
@@ -681,7 +721,7 @@ def test_export_with_session_id_returns_only_session_cards():
     store.save_flashcard(
         Flashcard(
             english_word="goodbye", chinese_characters="\u518d\u89c1",
-            jyutping="zaai6 gin3", image_data=b"\x89PNG2", audio_data=b"ogg2",
+            jyutping="zaai6 gin3", image_data=[b"\x89PNG2"], audio_data=b"ogg2",
             session_id=sid2,
         )
     )
@@ -727,7 +767,7 @@ def test_completion_passes_session_id_to_export():
     store.save_flashcard(
         Flashcard(
             english_word="hello", chinese_characters="\u4f60\u597d",
-            jyutping="nei5 hou2", image_data=b"\x89PNG", audio_data=b"ogg",
+            jyutping="nei5 hou2", image_data=[b"\x89PNG"], audio_data=b"ogg",
             session_id=sid,
         )
     )

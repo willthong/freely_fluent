@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>Cantonese Pronunciation for {{ characters }}</h1>
-<p class="jyutping"><strong>{{ jyutping|format_jyutping }}</strong></p>
+<p class="jyutping"><strong>{{ jyutping|format_jyutping }}</strong>{% if part_of_speech %} <em>({{ part_of_speech }})</em>{% endif %}</p>
 {% if audio_url %}
 <div class="audio-player">
   <audio controls>

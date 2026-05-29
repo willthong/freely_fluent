@@ -25,7 +25,7 @@ def test_save_flashcard_returns_flashcard_with_id():
             english_word="hello",
             chinese_characters="\u4f60\u597d",
             jyutping="nei5 hou2",
-            image_data=b"img",
+            image_data=[b"img"],
             audio_data=b"ogg",
         )
     )
@@ -34,7 +34,7 @@ def test_save_flashcard_returns_flashcard_with_id():
     assert fc.english_word == "hello"
     assert fc.chinese_characters == "\u4f60\u597d"
     assert fc.jyutping == "nei5 hou2"
-    assert fc.image_data == b"img"
+    assert fc.image_data == [b"img"]
     assert fc.audio_data == b"ogg"
     assert fc.created_at is not None
 
@@ -48,7 +48,7 @@ def test_get_flashcard_by_id():
             english_word="hello",
             chinese_characters="\u4f60\u597d",
             jyutping="nei5 hou2",
-            image_data=b"img",
+            image_data=[b"img"],
             audio_data=b"ogg",
         )
     )
@@ -82,7 +82,7 @@ def test_get_all_returns_all_cards():
             english_word="hello",
             chinese_characters="\u4f60\u597d",
             jyutping="nei5 hou2",
-            image_data=b"img1",
+            image_data=[b"img1"],
             audio_data=b"ogg1",
         )
     )
@@ -91,7 +91,7 @@ def test_get_all_returns_all_cards():
             english_word="goodbye",
             chinese_characters="\u518d\u89c1",
             jyutping="zaai6 gin3",
-            image_data=b"img2",
+            image_data=[b"img2"],
             audio_data=b"ogg2",
         )
     )
@@ -110,7 +110,7 @@ def test_delete_flashcard():
             english_word="hello",
             chinese_characters="\u4f60\u597d",
             jyutping="nei5 hou2",
-            image_data=b"img",
+            image_data=[b"img"],
             audio_data=b"ogg",
         )
     )
@@ -133,7 +133,7 @@ def test_flashcard_dataclass_defaults():
     assert fc.english_word == ""
     assert fc.chinese_characters == ""
     assert fc.jyutping == ""
-    assert fc.image_data == b""
+    assert fc.image_data == []
     assert fc.audio_data == b""
     assert fc.created_at is None
 
@@ -157,7 +157,7 @@ def test_multiple_saves_increment_ids():
             english_word="hello",
             chinese_characters="\u4f60\u597d",
             jyutping="nei5 hou2",
-            image_data=b"img",
+            image_data=[b"img"],
             audio_data=b"ogg",
         )
     )
@@ -166,7 +166,7 @@ def test_multiple_saves_increment_ids():
             english_word="goodbye",
             chinese_characters="\u518d\u89c1",
             jyutping="zaai6 gin3",
-            image_data=b"img2",
+            image_data=[b"img2"],
             audio_data=b"ogg2",
         )
     )
@@ -182,7 +182,7 @@ def test_save_flashcard_accepts_flashcard_object():
             english_word="hello",
             chinese_characters="\u4f60\u597d",
             jyutping="nei5 hou2",
-            image_data=b"img",
+            image_data=[b"img"],
             audio_data=b"ogg",
         )
     )
@@ -191,7 +191,7 @@ def test_save_flashcard_accepts_flashcard_object():
     assert fc.english_word == "hello"
     assert fc.chinese_characters == "\u4f60\u597d"
     assert fc.jyutping == "nei5 hou2"
-    assert fc.image_data == b"img"
+    assert fc.image_data == [b"img"]
     assert fc.audio_data == b"ogg"
     assert fc.created_at is not None
 
@@ -204,7 +204,7 @@ def test_save_flashcard_round_trips_through_get():
         english_word="goodbye",
         chinese_characters="\u518d\u89c1",
         jyutping="zaai6 gin3",
-        image_data=b"img2",
+        image_data=[b"img2"],
         audio_data=b"ogg2",
     )
     saved = store.save_flashcard(original)
@@ -226,7 +226,7 @@ def test_card_store_created_at_has_timestamp():
             english_word="hello",
             chinese_characters="\u4f60\u597d",
             jyutping="nei5 hou2",
-            image_data=b"img",
+            image_data=[b"img"],
             audio_data=b"ogg",
         )
     )
@@ -245,7 +245,7 @@ def test_save_flashcard_records_session_id():
             english_word="hello",
             chinese_characters="\u4f60\u597d",
             jyutping="nei5 hou2",
-            image_data=b"img",
+            image_data=[b"img"],
             audio_data=b"ogg",
             session_id="sess-abc",
         )
@@ -265,7 +265,7 @@ def test_get_by_session_returns_only_matching_cards():
             english_word="hello",
             chinese_characters="\u4f60\u597d",
             jyutping="nei5 hou2",
-            image_data=b"img1",
+            image_data=[b"img1"],
             audio_data=b"ogg1",
             session_id="sess-1",
         )
@@ -275,7 +275,7 @@ def test_get_by_session_returns_only_matching_cards():
             english_word="goodbye",
             chinese_characters="\u518d\u89c1",
             jyutping="zaai6 gin3",
-            image_data=b"img2",
+            image_data=[b"img2"],
             audio_data=b"ogg2",
             session_id="sess-2",
         )
@@ -285,7 +285,7 @@ def test_get_by_session_returns_only_matching_cards():
             english_word="thanks",
             chinese_characters="\u8b1d\u8b1d",
             jyutping="mei5 mei5",
-            image_data=b"img3",
+            image_data=[b"img3"],
             audio_data=b"ogg3",
             session_id="sess-1",
         )
@@ -304,7 +304,7 @@ def test_get_by_session_returns_empty_for_unknown_session():
             english_word="hello",
             chinese_characters="\u4f60\u597d",
             jyutping="nei5 hou2",
-            image_data=b"img",
+            image_data=[b"img"],
             audio_data=b"ogg",
             session_id="sess-1",
         )
@@ -325,7 +325,7 @@ def test_delete_broken_cards_removes_non_image_bytes():
             english_word="hello",
             chinese_characters="\u4f60\u597d",
             jyutping="nei5 hou2",
-            image_data=b"\x89PNG\r\n\x1a\n good image",
+            image_data=[b"\x89PNG\r\n\x1a\n good image"],
             audio_data=b"ogg",
         )
     )
@@ -335,7 +335,7 @@ def test_delete_broken_cards_removes_non_image_bytes():
             english_word="world",
             chinese_characters="\u4e16\u754c",
             jyutping="sei3 gaai3",
-            image_data=b"HTTP Error 403 - Forbidden",
+            image_data=[b"HTTP Error 403 - Forbidden"],
             audio_data=b"ogg2",
         )
     )
@@ -345,7 +345,7 @@ def test_delete_broken_cards_removes_non_image_bytes():
             english_word="test",
             chinese_characters="\u6e2c\u8a66",
             jyutping="cing3 sai3",
-            image_data=b"",
+            image_data=[],
             audio_data=b"ogg3",
         )
     )
@@ -366,7 +366,7 @@ def test_delete_broken_cards_no_op_when_all_good():
             english_word="hello",
             chinese_characters="\u4f60\u597d",
             jyutping="nei5 hou2",
-            image_data=b"\x89PNG\r\n\x1a\n image data",
+            image_data=[b"\x89PNG\r\n\x1a\n image data"],
             audio_data=b"ogg",
         )
     )
@@ -375,7 +375,7 @@ def test_delete_broken_cards_no_op_when_all_good():
             english_word="goodbye",
             chinese_characters="\u518d\u89c1",
             jyutping="zaai6 gin3",
-            image_data=b"\xff\xd8\xff\xe0 JPEG image",
+            image_data=[b"\xff\xd8\xff\xe0 JPEG image"],
             audio_data=b"ogg2",
         )
     )
@@ -411,6 +411,82 @@ def test_flashcard_defaults_session_id_empty():
     assert fc.session_id == ""
 
 
+# ── Multiple images via card_images table ──
+
+def test_save_and_retrieve_multiple_images():
+    """Saving a flashcard with multiple images and retrieving them
+    round-trips through the card_images table."""
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    store = CardStore(tmp.name)
+    fc = store.save_flashcard(
+        Flashcard(
+            english_word="hello",
+            chinese_characters="\u4f60\u597d",
+            jyutping="nei5 hou2",
+            image_data=[
+                b"\x89PNG\r\n\x1a\n img1 data",
+                b"\x89PNG\r\n\x1a\n img2 data",
+                b"\xff\xd8\xff\xe0 img3 jpeg",
+            ],
+            audio_data=b"OggS audio",
+        )
+    )
+    assert fc.id is not None
+    retrieved = store.get_flashcard(fc.id)
+    assert retrieved is not None
+    assert len(retrieved.image_data) == 3
+    assert retrieved.image_data[0] == b"\x89PNG\r\n\x1a\n img1 data"
+    assert retrieved.image_data[1] == b"\x89PNG\r\n\x1a\n img2 data"
+    assert retrieved.image_data[2] == b"\xff\xd8\xff\xe0 img3 jpeg"
+
+
+def test_save_and_retrieve_empty_images():
+    """Saving a flashcard with no images returns empty list."""
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    store = CardStore(tmp.name)
+    fc = store.save_flashcard(
+        Flashcard(
+            english_word="test",
+            chinese_characters="\u6e2c\u8a66",
+            jyutping="cing3 sai3",
+            image_data=[],
+            audio_data=b"OggS",
+        )
+    )
+    retrieved = store.get_flashcard(fc.id)
+    assert retrieved is not None
+    assert retrieved.image_data == []
+
+
+def test_images_preserved_after_upsert():
+    """Re-saving with the same uniqueness key replaces images."""
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    store = CardStore(tmp.name)
+    store.save_flashcard(
+        Flashcard(
+            english_word="hello",
+            chinese_characters="\u4f60\u597d",
+            jyutping="nei5 hou2",
+            image_data=[b"\x89PNG old img"],
+            audio_data=b"OggS old",
+        )
+    )
+    store.save_flashcard(
+        Flashcard(
+            english_word="hello",
+            chinese_characters="\u4f60\u597d",
+            jyutping="nei5 hou2",
+            image_data=[b"\x89PNG new img1", b"\xff\xd8\xff new img2"],
+            audio_data=b"OggS new",
+        )
+    )
+    cards = store.get_all()
+    assert len(cards) == 1
+    assert len(cards[0].image_data) == 2
+    assert cards[0].image_data[0] == b"\x89PNG new img1"
+    assert cards[0].image_data[1] == b"\xff\xd8\xff new img2"
+
+
 # ── Deduplication ──
 
 def test_save_flashcard_deduplicates_by_uniqueness_key():
@@ -423,7 +499,7 @@ def test_save_flashcard_deduplicates_by_uniqueness_key():
             english_word="hello",
             chinese_characters="\u4f60\u597d",
             jyutping="nei5 hou2",
-            image_data=b"img1",
+            image_data=[b"img1"],
             audio_data=b"ogg1",
         )
     )
@@ -432,7 +508,7 @@ def test_save_flashcard_deduplicates_by_uniqueness_key():
             english_word="hello",
             chinese_characters="\u4f60\u597d",
             jyutping="nei5 hou2",
-            image_data=b"img2",
+            image_data=[b"img2"],
             audio_data=b"ogg2",
         )
     )
@@ -450,7 +526,7 @@ def test_save_flashcard_upsert_updates_image_and_audio():
             english_word="hello",
             chinese_characters="\u4f60\u597d",
             jyutping="nei5 hou2",
-            image_data=b"img1",
+            image_data=[b"img1"],
             audio_data=b"ogg1",
         )
     )
@@ -459,13 +535,13 @@ def test_save_flashcard_upsert_updates_image_and_audio():
             english_word="hello",
             chinese_characters="\u4f60\u597d",
             jyutping="nei5 hou2",
-            image_data=b"img2",
+            image_data=[b"img2"],
             audio_data=b"ogg2",
         )
     )
     cards = store.get_all()
     assert len(cards) == 1
-    assert cards[0].image_data == b"img2"
+    assert cards[0].image_data == [b"img2"]
     assert cards[0].audio_data == b"ogg2"
 
 
@@ -478,7 +554,7 @@ def test_save_flashcard_different_jyutping_is_separate_card():
             english_word="word",
             chinese_characters="\u8aaa",
             jyutping="joi1",
-            image_data=b"img1",
+            image_data=[b"img1"],
             audio_data=b"ogg1",
         )
     )
@@ -487,7 +563,7 @@ def test_save_flashcard_different_jyutping_is_separate_card():
             english_word="word",
             chinese_characters="\u8aaa",
             jyutping="joi2",
-            image_data=b"img2",
+            image_data=[b"img2"],
             audio_data=b"ogg2",
         )
     )
@@ -504,7 +580,7 @@ def test_save_flashcard_different_word_is_separate_card():
             english_word="hello",
             chinese_characters="\u4f60\u597d",
             jyutping="nei5 hou2",
-            image_data=b"img1",
+            image_data=[b"img1"],
             audio_data=b"ogg1",
         )
     )
@@ -513,9 +589,87 @@ def test_save_flashcard_different_word_is_separate_card():
             english_word="hi",
             chinese_characters="\u4f60\u597d",
             jyutping="nei5 hou2",
-            image_data=b"img2",
+            image_data=[b"img2"],
             audio_data=b"ogg2",
         )
     )
     cards = store.get_all()
     assert len(cards) == 2
+
+
+# ── Part-of-speech field ──
+
+
+def test_flashcard_defaults_part_of_speech_empty():
+    """Flashcard defaults part_of_speech to empty string."""
+    fc = Flashcard()
+    assert fc.part_of_speech == ""
+
+
+def test_save_and_retrieve_part_of_speech():
+    """Saving a flashcard with part_of_speech round-trips through CardStore."""
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    store = CardStore(tmp.name)
+    fc = store.save_flashcard(
+        Flashcard(
+            english_word="hello",
+            chinese_characters="\u4f60\u597d",
+            jyutping="nei5 hou2",
+            image_data=[b"\x89PNG img"],
+            audio_data=b"ogg",
+            part_of_speech="n",
+        )
+    )
+    assert fc.part_of_speech == "n"
+    retrieved = store.get_flashcard(fc.id)
+    assert retrieved is not None
+    assert retrieved.part_of_speech == "n"
+
+
+def test_save_and_retrieve_empty_part_of_speech():
+    """A flashcard with empty part_of_speech persists and returns empty."""
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    store = CardStore(tmp.name)
+    fc = store.save_flashcard(
+        Flashcard(
+            english_word="hello",
+            chinese_characters="\u4f60\u597d",
+            jyutping="nei5 hou2",
+            image_data=[b"\x89PNG img"],
+            audio_data=b"ogg",
+            part_of_speech="",
+        )
+    )
+    retrieved = store.get_flashcard(fc.id)
+    assert retrieved is not None
+    assert retrieved.part_of_speech == ""
+
+
+def test_get_all_preserves_part_of_speech():
+    """get_all returns flashcards with part_of_speech populated."""
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    store = CardStore(tmp.name)
+    store.save_flashcard(
+        Flashcard(
+            english_word="run",
+            chinese_characters="\u8dd1",
+            jyutping="pou2",
+            image_data=[b"\x89PNG"],
+            audio_data=b"ogg",
+            part_of_speech="v",
+        )
+    )
+    store.save_flashcard(
+        Flashcard(
+            english_word="big",
+            chinese_characters="\u5927",
+            jyutping="daai6",
+            image_data=[b"\x89PNG"],
+            audio_data=b"ogg2",
+            part_of_speech="adj",
+        )
+    )
+    cards = store.get_all()
+    assert len(cards) == 2
+    assert cards[0].part_of_speech == "v"
+    assert cards[1].part_of_speech == "adj"

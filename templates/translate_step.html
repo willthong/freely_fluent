@@ -14,6 +14,18 @@
     </label>
   </div>
   {% endfor %}
+  <p class="pos-toggle">
+    <label>
+      <input type="checkbox" name="include_pos" id="include_pos"
+             hx-post="/sessions/{{ session_id }}/pos-toggle"
+             hx-ext="json-enc"
+             hx-vals='{"include_pos": event.target.checked}'
+             hx-trigger="change"
+             hx-on::after-request="var data = JSON.parse(event.detail.xhr.response); event.target.checked = data.include_pos"
+             {% if include_pos %}checked{% endif %}>
+      Show part-of-speech hints
+    </label>
+  </p>
   <p><button type="submit">Continue to Images</button></p>
 </form>
 <p><a href="/sessions/{{ session_id }}/skip">Skip this word</a></p>

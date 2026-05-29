@@ -60,7 +60,7 @@ def test_generate_apkg_with_opus_audio_produces_playable_card():
         english_word="hello",
         chinese_characters="你好",
         jyutping="nei5 hou2",
-        image_data=_FAKE_PNG_IMAGE,
+        image_data=[_FAKE_PNG_IMAGE],
         audio_data=_FAKE_OPUS_AUDIO,
     )
 
@@ -123,8 +123,9 @@ def test_generate_apkg_with_opus_audio_produces_playable_card():
 
             assert audio_basename in audio_field
             assert image_basename in image_field
-            assert "nei<sup>5</sup> hou<sup>2</sup>" in audio_field
-            assert "nei<sup>5</sup> hou<sup>2</sup>" in image_field
+            # Jyutping is in its own field (fields[0]) with superscript formatting
+            jyutping_field = fields[0]  # Jyutping field in 4-field model
+            assert "nei<sup>5</sup> hou<sup>2</sup>" in jyutping_field
 
             # 7. English words and Chinese characters never appear on the card face
             for field in fields:

@@ -14,7 +14,7 @@ def test_single_flashcard_produces_two_cards():
         english_word="hello",
         chinese_characters="你好",
         jyutping="nei5hou2",
-        image_data=b"iVBOR",
+        image_data=[b"iVBOR"],
         audio_data=b"OggS",
     )
 
@@ -39,7 +39,7 @@ def test_card_directions_have_correct_fields():
         english_word="hello",
         chinese_characters="你好",
         jyutping="nei5hou2",
-        image_data=b"iVBOR",
+        image_data=[b"iVBOR"],
         audio_data=b"OggS",
     )
 
@@ -63,9 +63,8 @@ def test_card_directions_have_correct_fields():
             assert "hello" not in field
             assert "你好" not in field
 
-        # Check that Jyutping appears in both fields (formatted as superscript)
+        # Check that Jyutping field (fields[0]) has superscript formatting
         assert "nei<sup>5</sup>hou<sup>2</sup>" in fields[0]
-        assert "nei<sup>5</sup>hou<sup>2</sup>" in fields[1]
 
         # Check that Audio tag is in one field and img tag in the other
         # We don't know which is which from the field order alone,
@@ -87,7 +86,7 @@ def test_export_produces_valid_apkg():
         english_word="bye",
         chinese_characters="再見",
         jyutping="zoii3gin3",
-        image_data=b"\x89PNG\r\n",
+        image_data=[b"\x89PNG\r\n"],
         audio_data=b"OggS",
     )
 
@@ -107,6 +106,47 @@ def test_export_produces_valid_apkg():
         assert "media" in names
 
 
+def test_multiple_images_per_flashcard_all_written():
+    """When a flashcard has multiple images, all are written to media
+    and appear on the card (first image on one side, rest on the other)."""
+    generator = CardGenerator()
+    flashcard = Flashcard(
+        english_word="hello",
+        chinese_characters="\u4f60\u597d",
+        jyutping="nei5hou2",
+        image_data=[
+            b"\x89PNG\r\n\x1a\n first image",
+            b"\xff\xd8\xff\xe0 second image",
+            b"\x89PNG\r\n\x1a\n third image",
+        ],
+        audio_data=b"OggS",
+    )
+
+    with tempfile.NamedTemporaryFile(suffix=".apkg", delete=False) as tmp:
+        path = tmp.name
+
+    generator.generate_apkg([flashcard], path)
+
+    with zipfile.ZipFile(path, "r") as z:
+        # Media files are stored as numbered entries in the zip
+        # (genanki renames them). Check we have the right count:
+        # 1 audio + 3 images = 4 media files + 2 dummy entries
+        media_entries = [n for n in z.namelist()
+                         if n not in ("collection.anki2", "media")]
+        assert len(media_entries) == 4
+
+        # Check that card fields reference multiple images
+        db_path = z.extract("collection.anki2", tempfile.mkdtemp())
+        conn = sqlite3.connect(db_path)
+        notes = conn.execute("SELECT flds FROM notes").fetchone()
+        fields = notes[0].split("\x1f")
+        combined = " ".join(fields)
+        # Should see img tags for all 3 images across both fields
+        img_count = combined.count("<img src=")
+        assert img_count >= 3, f"Expected 3 img tags, got {img_count}"
+        conn.close()
+
+
 def test_multiple_flashcards_produce_correct_card_count():
     """N flashcards produce N × 2 Anki cards."""
     import zipfile
@@ -114,9 +154,9 @@ def test_multiple_flashcards_produce_correct_card_count():
 
     generator = CardGenerator()
     flashcards = [
-        Flashcard(english_word="hello", chinese_characters="你好", jyutping="nei5hou2", image_data=b"img1", audio_data=b"aud1"),
-        Flashcard(english_word="bye", chinese_characters="再見", jyutping="zoii3gin3", image_data=b"img2", audio_data=b"aud2"),
-        Flashcard(english_word="thanks", chinese_characters="多謝", jyutping="do1ze6", image_data=b"img3", audio_data=b"aud3"),
+        Flashcard(english_word="hello", chinese_characters="你好", jyutping="nei5hou2", image_data=[b"img1"], audio_data=b"aud1"),
+        Flashcard(english_word="bye", chinese_characters="再見", jyutping="zoii3gin3", image_data=[b"img2"], audio_data=b"aud2"),
+        Flashcard(english_word="thanks", chinese_characters="多謝", jyutping="do1ze6", image_data=[b"img3"], audio_data=b"aud3"),
     ]
 
     with tempfile.NamedTemporaryFile(suffix=".apkg", delete=False) as tmp:
@@ -147,7 +187,7 @@ def test_card_fields_contain_superscript_jyutping():
         english_word="hello",
         chinese_characters="你好",
         jyutping="nei5hou2",
-        image_data=b"iVBOR",
+        image_data=[b"iVBOR"],
         audio_data=b"OggS",
     )
 
@@ -164,10 +204,9 @@ def test_card_fields_contain_superscript_jyutping():
         notes = conn.execute("SELECT flds FROM notes").fetchone()
         fields = notes[0].split("\x1f")
 
-        # Both fields (front and back) must have superscript Jyutping
+        # Jyutping field (fields[0]) must have superscript formatting
         expected = "nei<sup>5</sup>hou<sup>2</sup>"
         assert expected in fields[0]
-        assert expected in fields[1]
 
         conn.close()
 
@@ -179,7 +218,7 @@ def test_card_fields_handle_jyutping_asterisk():
         english_word="test",
         chinese_characters="測",
         jyutping="cek3*1",
-        image_data=b"iVBOR",
+        image_data=[b"iVBOR"],
         audio_data=b"OggS",
     )
 
@@ -198,9 +237,102 @@ def test_card_fields_handle_jyutping_asterisk():
 
         expected = "cek<sup>3</sup>"
         assert expected in fields[0]
-        assert expected in fields[1]
-        # The asterisk and alternative number should NOT appear
+        # The asterisk and alternative number should NOT appear in the Jyutping field
         assert "*1" not in fields[0]
-        assert "*1" not in fields[1]
+
+        conn.close()
+
+
+def test_part_of_speech_appears_on_cards_when_set():
+    """When part_of_speech is set, it appears in the PartOfSpeech field
+    and is rendered with <em>() tags in card templates."""
+    generator = CardGenerator()
+    flashcard = Flashcard(
+        english_word="run",
+        chinese_characters="\u8dd1",
+        jyutping="pou2",
+        image_data=[b"\x89PNG"],
+        audio_data=b"OggS",
+        part_of_speech="v",
+    )
+
+    with tempfile.NamedTemporaryFile(suffix=".apkg", delete=False) as tmp:
+        path = tmp.name
+
+    generator.generate_apkg([flashcard], path)
+
+    with zipfile.ZipFile(path, "r") as z:
+        tmp_dir = tempfile.mkdtemp()
+        db_path = z.extract("collection.anki2", tmp_dir)
+        conn = sqlite3.connect(db_path)
+
+        notes = conn.execute("SELECT flds FROM notes").fetchone()
+        fields = notes[0].split("\x1f")
+
+        # PartOfSpeech field (fields[3]) contains the POS value
+        assert fields[3] == "v"
+
+        conn.close()
+
+
+def test_part_of_speech_empty_when_not_set():
+    """When part_of_speech is empty string, the PartOfSpeech field is empty,
+    and Anki's {{#PartOfSpeech}}...{{/PartOfSpeech}} conditional hides it."""
+    generator = CardGenerator()
+    flashcard = Flashcard(
+        english_word="hello",
+        chinese_characters="\u4f60\u597d",
+        jyutping="nei5hou2",
+        image_data=[b"\x89PNG"],
+        audio_data=b"OggS",
+        part_of_speech="",
+    )
+
+    with tempfile.NamedTemporaryFile(suffix=".apkg", delete=False) as tmp:
+        path = tmp.name
+
+    generator.generate_apkg([flashcard], path)
+
+    with zipfile.ZipFile(path, "r") as z:
+        tmp_dir = tempfile.mkdtemp()
+        db_path = z.extract("collection.anki2", tmp_dir)
+        conn = sqlite3.connect(db_path)
+
+        notes = conn.execute("SELECT flds FROM notes").fetchone()
+        fields = notes[0].split("\x1f")
+
+        # PartOfSpeech field (fields[3]) is empty
+        assert fields[3] == ""
+
+        conn.close()
+
+
+def test_card_uses_custom_model_not_basic_reversed():
+    """The .apkg should use the custom FreelyFluentCard model with 4 fields,
+    not genanki's BASIC_AND_REVERSED_CARD_MODEL which has 2 fields."""
+    generator = CardGenerator()
+    flashcard = Flashcard(
+        english_word="test",
+        chinese_characters="\u6e2c",
+        jyutping="cek3",
+        image_data=[b"\x89PNG"],
+        audio_data=b"OggS",
+    )
+
+    with tempfile.NamedTemporaryFile(suffix=".apkg", delete=False) as tmp:
+        path = tmp.name
+
+    generator.generate_apkg([flashcard], path)
+
+    with zipfile.ZipFile(path, "r") as z:
+        tmp_dir = tempfile.mkdtemp()
+        db_path = z.extract("collection.anki2", tmp_dir)
+        conn = sqlite3.connect(db_path)
+
+        # Check the notes table has 4 fields (Jyutping, Images, Audio, PartOfSpeech)
+        # Basic reversed model only has 2 fields (Front, Back)
+        notes = conn.execute("SELECT flds FROM notes").fetchone()
+        fields = notes[0].split("\x1f")
+        assert len(fields) == 4
 
         conn.close()
