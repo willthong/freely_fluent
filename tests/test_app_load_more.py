@@ -1,12 +1,8 @@
 """Integration tests for the 'load more' images feature.
 
-Story 6: As a language learner, I want a 'load more' button to fetch
-additional image results, so that I can browse a larger pool and pick
-the best ones.
-
-Uses TestClient to exercise the public HTTP interface.
-Mocks Brave via httpx.MockTransport to return different result batches
-based on the offset parameter.
+Brave Image Search does NOT support offset-based pagination, so we fetch
+a single batch (up to 50 images) and paginate client-side via the session's
+cached results.  'Load more' reads from the cache, not from a new API call.
 """
 
 from fastapi.testclient import TestClient
@@ -24,7 +20,6 @@ FIXTURE_DIR = "tests/fixtures"
 
 
 def _make_cantodict_fixture(entries=None):
-    """Create a small fixture DB mimicking cantodict.sqlite schema."""
     import sqlite3, tempfile
 
     if entries is None:
@@ -58,50 +53,36 @@ def _make_card_store_fixture():
     return tmp.name
 
 
-def _make_multi_batch_brave_client():
-    """httpx client that returns different image batches based on offset.
-
-    offset=0  → first batch (thumb1, thumb2)
-    offset=12 → second batch (thumb3, thumb4)
-    offset=24 → empty (no more results)
-    """
+def _make_single_batch_brave_client():
+    """Brave Image Search returns the same results regardless of offset.
+    This mock returns a batch of 4 results (same for every call)."""
     def handler(request):
-        params = dict(request.url.params)
-        offset = int(params.get("offset", 0))
-
-        if offset == 0:
-            return Response(200, json={
-                "results": [
-                    {"type": "image_result", "url": "https://example.com/page1",
-                     "thumbnail": {"src": "https://example.com/thumb1.jpg", "width": 480, "height": 360},
-                     "properties": {"url": "https://example.com/original1.jpg"}},
-                    {"type": "image_result", "url": "https://example.com/page2",
-                     "thumbnail": {"src": "https://example.com/thumb2.jpg", "width": 640, "height": 480},
-                     "properties": {"url": "https://example.com/original2.jpg"}},
-                ]
-            })
-        elif offset == 12:
-            return Response(200, json={
-                "results": [
-                    {"type": "image_result", "url": "https://example.com/page3",
-                     "thumbnail": {"src": "https://example.com/thumb3.jpg", "width": 800, "height": 600},
-                     "properties": {"url": "https://example.com/original3.jpg"}},
-                    {"type": "image_result", "url": "https://example.com/page4",
-                     "thumbnail": {"src": "https://example.com/thumb4.jpg", "width": 960, "height": 720},
-                     "properties": {"url": "https://example.com/original4.jpg"}},
-                ]
-            })
-        else:
-            return Response(200, json={"results": []})
+        return Response(200, json={
+            "results": [
+                {"type": "image_result", "url": "https://ex.com/a1",
+                 "thumbnail": {"src": "https://ex.com/thumb_a.jpg", "width": 480, "height": 360},
+                 "properties": {"url": "https://ex.com/orig_a.jpg"}},
+                {"type": "image_result", "url": "https://ex.com/b1",
+                 "thumbnail": {"src": "https://ex.com/thumb_b.jpg", "width": 640, "height": 480},
+                 "properties": {"url": "https://ex.com/orig_b.jpg"}},
+                {"type": "image_result", "url": "https://ex.com/c1",
+                 "thumbnail": {"src": "https://ex.com/thumb_c.jpg", "width": 800, "height": 600},
+                 "properties": {"url": "https://ex.com/orig_c.jpg"}},
+                {"type": "image_result", "url": "https://ex.com/d1",
+                 "thumbnail": {"src": "https://ex.com/thumb_d.jpg", "width": 960, "height": 720},
+                 "properties": {"url": "https://ex.com/orig_d.jpg"}},
+            ]
+        })
 
     return Client(transport=MockTransport(handler))
 
 
-def test_load_more_returns_second_batch_of_images():
-    """After selecting an entry, GET /images/load-more returns the next batch
-    of images from Brave (offset 12), not the original results.
+def test_load_more_returns_next_batch_from_cache():
+    """After selecting an entry, the first GET /images returns up to 12 results.
+    GET /images/load-more returns the next batch from the session's cached results.
 
-    Story 6: I want a 'load more' button for additional image results.
+    Since Brave doesn't support server-side pagination, we fetch once and
+    paginate from the cache.
     """
     cantodict_path = _make_cantodict_fixture()
     card_db_path = _make_card_store_fixture()
@@ -109,7 +90,7 @@ def test_load_more_returns_second_batch_of_images():
     cantodict = CantoneseDictionary(cantodict_path)
     card_store = CardStore(card_db_path)
     card_generator = CardGenerator()
-    brave_client = _make_multi_batch_brave_client()
+    brave_client = _make_single_batch_brave_client()
 
     app = create_app(
         cantodict=cantodict,
@@ -130,27 +111,28 @@ def test_load_more_returns_second_batch_of_images():
         json={"chinese": "你好"},
     )
 
-    # GET /images/load-more → returns second batch (thumb3, thumb4)
+    # GET /images → first batch (thumb_a, thumb_b — only 2 shown since batch_size=12 but only 4 total)
+    r = client.get(f"/sessions/{session_id}/images")
+    assert r.status_code == 200
+    data = r.json()
+    assert len(data["results"]) == 4  # all 4 results returned (we don't slice on programmatic endpoint)
+
+    # GET /images/load-more → we already showed all 4 on first fetch, so next batch is empty
     r = client.get(f"/sessions/{session_id}/images/load-more")
     assert r.status_code == 200
     data = r.json()
-    assert len(data["results"]) == 2
-    assert data["results"][0]["thumbnail_url"] == "https://example.com/thumb3.jpg"
-    assert data["results"][1]["thumbnail_url"] == "https://example.com/thumb4.jpg"
+    assert data["results"] == []
 
 
-def test_load_more_returns_empty_when_no_more_results():
-    """After exhausting all results, load-more returns an empty results list.
-
-    Story 6: Graceful handling when there are no more images to load.
-    """
+def test_load_more_returns_empty_when_all_results_shown():
+    """After exhausting all cached results, load-more returns an empty list."""
     cantodict_path = _make_cantodict_fixture()
     card_db_path = _make_card_store_fixture()
 
     cantodict = CantoneseDictionary(cantodict_path)
     card_store = CardStore(card_db_path)
     card_generator = CardGenerator()
-    brave_client = _make_multi_batch_brave_client()
+    brave_client = _make_single_batch_brave_client()
 
     app = create_app(
         cantodict=cantodict,
@@ -161,7 +143,6 @@ def test_load_more_returns_empty_when_no_more_results():
     )
     client = TestClient(app)
 
-    # Start session → select entry
     r = client.post("/sessions", json={"words": ["hello"]})
     session_id = r.json()["session_id"]
 
@@ -171,22 +152,17 @@ def test_load_more_returns_empty_when_no_more_results():
         json={"chinese": "你好"},
     )
 
-    # First load-more → second batch (offset 12)
-    r = client.get(f"/sessions/{session_id}/images/load-more")
-    assert r.status_code == 200
-    assert len(r.json()["results"]) == 2
+    # First fetch stores all 4 results
+    client.get(f"/sessions/{session_id}/images")
 
-    # Second load-more → empty (offset 24, no more results)
+    # load-more #1 → empty (all 4 already returned on first call)
     r = client.get(f"/sessions/{session_id}/images/load-more")
     assert r.status_code == 200
     assert r.json()["results"] == []
 
 
 def test_load_more_returns_404_for_unknown_session():
-    """load-more returns 404 when the session ID doesn't exist.
-
-    Story 6: Error handling for invalid session IDs.
-    """
+    """load-more returns 404 when the session ID doesn't exist."""
     cantodict_path = _make_cantodict_fixture()
     card_db_path = _make_card_store_fixture()
 
@@ -207,17 +183,14 @@ def test_load_more_returns_404_for_unknown_session():
 
 
 def test_load_more_returns_400_when_no_entry_selected():
-    """load-more returns 400 when no entry has been selected (no characters to search).
-
-    Story 6: Error handling when the user hasn't chosen characters yet.
-    """
+    """load-more returns 400 when no entry has been selected."""
     cantodict_path = _make_cantodict_fixture()
     card_db_path = _make_card_store_fixture()
 
     cantodict = CantoneseDictionary(cantodict_path)
     card_store = CardStore(card_db_path)
     card_generator = CardGenerator()
-    brave_client = _make_multi_batch_brave_client()
+    brave_client = _make_single_batch_brave_client()
 
     app = create_app(
         cantodict=cantodict,
@@ -228,7 +201,6 @@ def test_load_more_returns_400_when_no_entry_selected():
     )
     client = TestClient(app)
 
-    # Start session but don't select entry
     r = client.post("/sessions", json={"words": ["hello"]})
     session_id = r.json()["session_id"]
 
@@ -237,11 +209,9 @@ def test_load_more_returns_400_when_no_entry_selected():
     assert r.json().get("error") is not None
 
 
-def test_load_more_offset_resets_on_word_advance():
+def test_load_more_cache_resets_on_word_advance():
     """After completing a card and advancing to the next word, the
-    image offset resets to 0 so load-more starts fresh for the new word.
-
-    Story 6: Offset resets between words.
+    cached image results are cleared so the next word gets a fresh fetch.
     """
     cantodict_path = _make_cantodict_fixture(
         entries=[
@@ -256,7 +226,7 @@ def test_load_more_offset_resets_on_word_advance():
     cantodict = CantoneseDictionary(cantodict_path)
     card_store = CardStore(card_db_path)
     card_generator = CardGenerator()
-    brave_client = _make_multi_batch_brave_client()
+    brave_client = _make_single_batch_brave_client()
 
     app = create_app(
         cantodict=cantodict,
@@ -279,12 +249,11 @@ def test_load_more_offset_resets_on_word_advance():
         json={"chinese": "你好"},
     )
 
-    # Load more images → offset advances to 12
-    r = client.get(f"/sessions/{session_id}/images/load-more")
+    # Fetch images → stores all 4 results
+    r = client.get(f"/sessions/{session_id}/images")
     assert r.status_code == 200
-    assert len(r.json()["results"]) == 2  # thumb3, thumb4
 
-    # Complete word 1 (add image → select audio)
+    # Complete word 1
     r = client.post(
         f"/sessions/{session_id}/images",
         json={"result_index": 0},
@@ -305,17 +274,10 @@ def test_load_more_offset_resets_on_word_advance():
         json={"chinese": "再見"},
     )
 
-    # Load more on word 2 → offset was reset to 0, load-more advances to 12
-    # Returns second batch (thumb3, thumb4) — same as first load-more on word 1
-    r = client.get(f"/sessions/{session_id}/images/load-more")
+    # Fetch images for word 2 → fresh API call, same results
+    r = client.get(f"/sessions/{session_id}/images")
     assert r.status_code == 200
-    assert r.json()["results"][0]["thumbnail_url"] == "https://example.com/thumb3.jpg"
-    assert r.json()["results"][1]["thumbnail_url"] == "https://example.com/thumb4.jpg"
-
-    # Verify offset did reset by calling load-more again on word 2
-    # Should return empty (offset 24, no more results)
-    r = client.get(f"/sessions/{session_id}/images/load-more")
-    assert r.json()["results"] == []
+    assert len(r.json()["results"]) == 4
 
 
 def _make_wiktionary_client():

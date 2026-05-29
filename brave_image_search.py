@@ -29,16 +29,21 @@ class BraveImageSearch:
             self._owns_client = False
 
     def search(
-        self, query: str, count: int = 12, offset: int = 0
+        self, query: str, count: int = 200
     ) -> list[dict[str, str]]:
         """Search for images matching *query*.
+
+        Brave Image Search does NOT support offset-based pagination, so each
+        call returns a fresh snapshot. We use count=200 (the API max) since
+        it costs the same as any smaller count — same single API call,
+        same token cost. Results are paginated client-side from the cache.
 
         Returns a list of result dicts with thumbnail_url and url keys.
         """
         try:
             response = self._client.get(
                 "https://api.search.brave.com/res/v1/images/search",
-                params={"q": query, "count": count, "offset": offset},
+                params={"q": query, "count": count},
                 headers={
                     "Accept": "application/json",
                     "X-Subscription-Token": self._api_key,

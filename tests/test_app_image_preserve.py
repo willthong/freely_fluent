@@ -48,52 +48,43 @@ def _make_card_store_fixture():
     return tmp.name
 
 
-def _make_multi_batch_brave_client():
-    """Return different image batches based on offset."""
+def _make_single_batch_brave_client():
+    """Brave Image Search returns the same results regardless of offset.
+    This mock returns 4 results (same for every call)."""
     def handler(request):
-        params = dict(request.url.params)
-        offset = int(params.get("offset", 0))
-
-        if offset == 0:
-            return httpx.Response(200, json={
-                "results": [
-                    {"type": "image_result", "url": "https://ex.com/a1",
-                     "thumbnail": {"src": "https://ex.com/thumb_a1.jpg", "width": 480, "height": 360},
-                     "properties": {"url": "https://ex.com/orig_a1.jpg"}},
-                    {"type": "image_result", "url": "https://ex.com/a2",
-                     "thumbnail": {"src": "https://ex.com/thumb_a2.jpg", "width": 640, "height": 480},
-                     "properties": {"url": "https://ex.com/orig_a2.jpg"}},
-                ]
-            })
-        elif offset == 12:
-            return httpx.Response(200, json={
-                "results": [
-                    {"type": "image_result", "url": "https://ex.com/b1",
-                     "thumbnail": {"src": "https://ex.com/thumb_b1.jpg", "width": 800, "height": 600},
-                     "properties": {"url": "https://ex.com/orig_b1.jpg"}},
-                    {"type": "image_result", "url": "https://ex.com/b2",
-                     "thumbnail": {"src": "https://ex.com/thumb_b2.jpg", "width": 960, "height": 720},
-                     "properties": {"url": "https://ex.com/orig_b2.jpg"}},
-                ]
-            })
-        else:
-            return httpx.Response(200, json={"results": []})
+        return httpx.Response(200, json={
+            "results": [
+                {"type": "image_result", "url": "https://ex.com/a1",
+                 "thumbnail": {"src": "https://ex.com/thumb_a1.jpg", "width": 480, "height": 360},
+                 "properties": {"url": "https://ex.com/orig_a1.jpg"}},
+                {"type": "image_result", "url": "https://ex.com/a2",
+                 "thumbnail": {"src": "https://ex.com/thumb_a2.jpg", "width": 640, "height": 480},
+                 "properties": {"url": "https://ex.com/orig_a2.jpg"}},
+                {"type": "image_result", "url": "https://ex.com/b1",
+                 "thumbnail": {"src": "https://ex.com/thumb_b1.jpg", "width": 800, "height": 600},
+                 "properties": {"url": "https://ex.com/orig_b1.jpg"}},
+                {"type": "image_result", "url": "https://ex.com/b2",
+                 "thumbnail": {"src": "https://ex.com/thumb_b2.jpg", "width": 960, "height": 720},
+                 "properties": {"url": "https://ex.com/orig_b2.jpg"}},
+            ]
+        })
 
     return httpx.Client(transport=httpx.MockTransport(handler))
 
 
 def test_load_more_accumulates_results_in_session():
-    """Calling load-more appends results to the session's accumulated list,
-    so indices from multiple batches are all valid for submission.
+    """Calling load-more reads from the session's cached results, so all
+    indices are valid for submission even across batches.
 
     Given a session at the image step:
-    - GET /images returns batch A (indices 0-1)
-    - GET /images/load-more returns batch B (indices 2-3)
-    - POST /images with index 0 (batch A) and index 2 (batch B) selects both
+    - GET /images fetches 4 results and caches them
+    - POST /images with any valid index selects that image
+    - GET /images/load-more advances the cursor but only returns remaining
+      unsliced results (since the programmatic endpoint returns all cached)
     """
     cantodict_path = _make_cantodict_fixture()
     card_db_path = _make_card_store_fixture()
-    brave_client = _make_multi_batch_brave_client()
+    brave_client = _make_single_batch_brave_client()
 
     cantodict = CantoneseDictionary(cantodict_path)
     card_store = CardStore(card_db_path)
@@ -118,25 +109,24 @@ def test_load_more_accumulates_results_in_session():
     r = client.get(f"/sessions/{session_id}/images")
     assert r.status_code == 200
     data = r.json()
-    assert len(data["results"]) == 2
+    assert len(data["results"]) == 4
     assert data["results"][0]["thumbnail_url"] == "https://ex.com/thumb_a1.jpg"
-    assert data["results"][1]["thumbnail_url"] == "https://ex.com/thumb_a2.jpg"
+    assert data["results"][2]["thumbnail_url"] == "https://ex.com/thumb_b1.jpg"
 
-    # GET /images/load-more → second batch appended (offset=12)
+    # GET /images/load-more → reads from cache (all 4 already returned on first fetch)
     r = client.get(f"/sessions/{session_id}/images/load-more")
     assert r.status_code == 200
     data = r.json()
-    assert len(data["results"]) == 2
-    assert data["results"][0]["thumbnail_url"] == "https://ex.com/thumb_b1.jpg"
-    assert data["results"][1]["thumbnail_url"] == "https://ex.com/thumb_b2.jpg"
+    # All 4 results were returned on the first GET /images, so load-more is empty
+    assert data["results"] == []
 
-    # Session now has 4 accumulated results
+    # Session has 4 accumulated results
     r = client.get(f"/sessions/{session_id}")
     assert r.status_code == 200
     # The session endpoint doesn't expose all_image_results directly,
-    # but we verify submission works with cross-batch indices
+    # but we verify submission works with valid indices
 
-    # POST /images with index 0 (batch A) and index 2 (batch B, offset 12 + 0)
+    # POST /images with index 0
     r = client.post(
         f"/sessions/{session_id}/images",
         json={"result_index": 0},
@@ -153,14 +143,12 @@ def test_load_more_accumulates_results_in_session():
 
 
 def test_load_more_html_page_stores_results():
-    """GET /image/{session_id} stores the first batch in session and
-    passes the offset to the template for correct checkbox values.
-
-    Then load more via HTMX endpoint appends and returns correct indices.
+    """GET /image/{session_id} stores the full result set in session,
+    shows the first 12, and includes a load-more button.
     """
     cantodict_path = _make_cantodict_fixture()
     card_db_path = _make_card_store_fixture()
-    brave_client = _make_multi_batch_brave_client()
+    brave_client = _make_single_batch_brave_client()
 
     cantodict = CantoneseDictionary(cantodict_path)
     card_store = CardStore(card_db_path)

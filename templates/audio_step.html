@@ -97,7 +97,7 @@ function splitSyllable(syl) {
   return { text: syl, tone: '' };
 }
 
-/** Render the jyutping as editable tone-number inputs. */
+/** Render the jyutping as editable tone-number inputs with per-syllable delete. */
 function renderJyutpingEditor(raw) {
   if (!raw) {
     document.getElementById('jyutping-editor').innerHTML = '';
@@ -115,10 +115,19 @@ function renderJyutpingEditor(raw) {
       html += '<span class="jyutping-syllable">';
       html += '<span class="jyutping-text">' + syl.text + '</span>';
       html += '<input type="number" class="tone-input" value="' + syl.tone + '" min="1" max="9" step="1" size="1">';
+      html += '<button type="button" class="syllable-remove" onclick="removeSyllable(this)" title="Delete this syllable">&times;</button>';
       html += '</span>';
     }
   }
   document.getElementById('jyutping-editor').innerHTML = '<p class="audio-jyutping">' + html + '</p>';
+}
+
+/** Remove a syllable's DOM element when its delete button is clicked. */
+function removeSyllable(btn) {
+  var syl = btn.closest('.jyutping-syllable');
+  if (syl) {
+    syl.remove();
+  }
 }
 
 /** Read the current tone inputs and rebuild the jyutping string. */

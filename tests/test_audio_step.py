@@ -621,3 +621,161 @@ def test_audio_step_confirm_without_tone_override_uses_original():
     assert len(flashcards) == 1
     card = flashcards[0]
     assert card.jyutping == "nei5 hou2"  # original, unchanged
+
+
+def test_audio_step_confirm_with_syllable_removed():
+    """Confirming audio with a syllable removed from the jyutping saves
+    the card with the remaining syllables only.
+
+    Feature: User can delete individual Jyutping syllables they disagree with.
+    """
+    import base64
+
+    cantodict_path = _make_cantodict_fixture()
+    card_db_path = _make_card_store_fixture()
+
+    wiktionary_client = _make_wiktionary_client_char("你")
+    brave_client = _make_brave_client()
+    audio_download_client = _make_audio_download_client()
+
+    cantodict = CantoneseDictionary(cantodict_path)
+    card_store = CardStore(card_db_path)
+    card_generator = CardGenerator()
+
+    app = create_app(
+        cantodict=cantodict,
+        card_store=card_store,
+        card_generator=card_generator,
+        wiktionary_client=wiktionary_client,
+        brave_client=brave_client,
+        audio_download_client=audio_download_client,
+        api_key="test-key",
+    )
+    client = TestClient(app, raise_server_exceptions=False)
+
+    # 1. Pipeline: start session → translate → entry → image → audio
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+
+    client.get(f"/sessions/{session_id}/translate")
+    client.post(f"/sessions/{session_id}/entries", json={"chinese": "你好"})
+    client.post(f"/sessions/{session_id}/images", json={"result_index": 0})
+
+    # 2. Confirm with one syllable removed (just "nei5" instead of "nei5 hou2")
+    r = client.post(
+        f"/audio/{session_id}",
+        json={"source": "wiktionary", "jyutping": "nei5"},
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["completed"] is True
+
+    # 3. Verify flashcard saved with only the remaining syllable
+    flashcards = card_store.get_all()
+    assert len(flashcards) == 1
+    card = flashcards[0]
+    assert card.jyutping == "nei5"  # one syllable deleted
+    assert card.english_word == "hello"
+    assert card.chinese_characters == "你好"
+
+
+def test_audio_step_confirm_with_empty_jyutping():
+    """Confirming audio with an empty jyutping after deleting all syllables
+    saves the card with an empty jyutping.
+
+    Edge case: user deletes all syllables.
+    """
+    import base64
+
+    cantodict_path = _make_cantodict_fixture()
+    card_db_path = _make_card_store_fixture()
+
+    wiktionary_client = _make_wiktionary_client_char("你")
+    brave_client = _make_brave_client()
+    audio_download_client = _make_audio_download_client()
+
+    cantodict = CantoneseDictionary(cantodict_path)
+    card_store = CardStore(card_db_path)
+    card_generator = CardGenerator()
+
+    app = create_app(
+        cantodict=cantodict,
+        card_store=card_store,
+        card_generator=card_generator,
+        wiktionary_client=wiktionary_client,
+        brave_client=brave_client,
+        audio_download_client=audio_download_client,
+        api_key="test-key",
+    )
+    client = TestClient(app, raise_server_exceptions=False)
+
+    # 1. Pipeline: start session → translate → entry → image → audio
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+
+    client.get(f"/sessions/{session_id}/translate")
+    client.post(f"/sessions/{session_id}/entries", json={"chinese": "你好"})
+    client.post(f"/sessions/{session_id}/images", json={"result_index": 0})
+
+    # 2. Confirm with empty jyutping (all syllables deleted)
+    r = client.post(
+        f"/audio/{session_id}",
+        json={"source": "wiktionary", "jyutping": ""},
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["completed"] is True
+
+    # 3. Verify flashcard saved with empty jyutping
+    flashcards = card_store.get_all()
+    assert len(flashcards) == 1
+    card = flashcards[0]
+    assert card.jyutping == ""  # all syllables deleted
+    assert card.english_word == "hello"
+    assert card.chinese_characters == "你好"
+
+
+def test_audio_step_page_has_syllable_delete_buttons():
+    """The audio step page renders a delete button for each Jyutping syllable.
+
+    Feature: User can delete individual Jyutping syllables.
+    """
+    cantodict_path = _make_cantodict_fixture()
+    card_db_path = _make_card_store_fixture()
+
+    wiktionary_client = _make_wiktionary_client_char("你")
+    brave_client = _make_brave_client()
+    audio_download_client = _make_audio_download_client()
+
+    cantodict = CantoneseDictionary(cantodict_path)
+    card_store = CardStore(card_db_path)
+    card_generator = CardGenerator()
+
+    app = create_app(
+        cantodict=cantodict,
+        card_store=card_store,
+        card_generator=card_generator,
+        wiktionary_client=wiktionary_client,
+        brave_client=brave_client,
+        audio_download_client=audio_download_client,
+        api_key="test-key",
+    )
+    client = TestClient(app, raise_server_exceptions=False)
+
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+
+    client.get(f"/sessions/{session_id}/translate")
+    client.post(f"/sessions/{session_id}/entries", json={"chinese": "你好"})
+    client.post(f"/sessions/{session_id}/images", json={"result_index": 0})
+
+    r = client.get(f"/audio/{session_id}")
+    assert r.status_code == 200
+    body = r.text
+
+    # The delete button for syllables should appear in the page
+    assert "syllable-remove" in body or "delete-syllable" in body
+    # The button should have a click handler or onclick attribute
+    assert "onclick" in body.lower() or "removeSyllable" in body
+    # RAW_JYUTPING confirms JS-based rendering is in place
+    assert "RAW_JYUTPING" in body

@@ -88,8 +88,12 @@ def test_search_returns_empty_list_on_network_error():
     assert results == []
 
 
-def test_search_passes_count_and_offset_to_api():
-    """search forwards count and offset parameters to the API."""
+def test_search_passes_count_to_api():
+    """search forwards count parameter to the API.
+
+    Brave Image Search does NOT support offset-based pagination,
+    so only count is passed.
+    """
     captured_request = None
 
     def capture(request: httpx.Request) -> httpx.Response:
@@ -99,10 +103,10 @@ def test_search_passes_count_and_offset_to_api():
 
     client = httpx.Client(transport=httpx.MockTransport(capture))
     searcher = BraveImageSearch(api_key="mock-key", client=client)
-    searcher.search("你好", count=20, offset=10)
+    searcher.search("你好", count=20)
 
     assert captured_request is not None
     params = dict(captured_request.url.params)
     assert params.get("q") == "你好"
     assert params.get("count") == "20"
-    assert params.get("offset") == "10"
+    assert "offset" not in params

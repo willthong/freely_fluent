@@ -355,6 +355,7 @@ def create_app(
             return {"error": "no entry selected"}
         results = _get_orchestrator().search_images(session)
         session.store_image_results(results)
+        session.load_more_images(len(results))  # mark all results as "shown"
         return {"results": results}
 
     @app.post("/sessions/{session_id}/images")
@@ -375,16 +376,21 @@ def create_app(
 
     @app.get("/sessions/{session_id}/images/load-more")
     def load_more_images(session_id: str):
-        """Fetch the next batch of image results and append to accumulated results."""
+        """Return the next batch of cached image results (client-side pagination).
+
+        Brave Image Search has no server-side pagination, so we fetch the
+        full batch once and paginate from the cache.
+        """
         session = _sessions.get(session_id)
         if session is None:
             return Response(status_code=404)
         characters = session.selected_characters
         if not characters:
             return {"error": "no entry selected"}
-        offset = session.load_more_images()
-        results = _get_orchestrator().search_images(session, offset=offset)
-        session.store_image_results(results)
+        batch_size = 12
+        cursor = session.load_more_images(batch_size)
+        start = cursor - batch_size
+        results = session.all_image_results[start:cursor]
         return {"results": results}
 
     # ── Wiktionary Audio ──
@@ -535,21 +541,24 @@ def create_app(
             return Response(status_code=400)
         results = _get_orchestrator().search_images(session)
         session.store_image_results(results)
+        # Show first 12; rest are available via client-side pagination
+        first_batch = results[:12]
+        session.load_more_images(12)  # advance cursor past first batch
         return templates.TemplateResponse(
             request,
             "image_step.html",
             {
                 "session_id": session_id,
-                "results": results,
+                "results": first_batch,
                 "current_step": session.current_step,
-                "image_offset": session.image_offset,
+                "image_offset": 0,
                 "all_result_count": len(session.all_image_results),
             },
         )
 
     @app.get("/image/{session_id}/load-more")
     def load_more_image_cards(request: Request, session_id: str):
-        """HTMX endpoint: fetch next batch of images and return card HTML."""
+        """HTMX endpoint: return the next batch of images from cached results."""
         session = _sessions.get(session_id)
         if session is None:
             return Response(status_code=404)
@@ -558,15 +567,16 @@ def create_app(
             return Response(status_code=400)
         if session.current_step != "image":
             return Response(status_code=400)
-        offset = session.load_more_images()
-        results = _get_orchestrator().search_images(session, offset=offset)
-        session.store_image_results(results)
+        batch_size = 12
+        cursor = session.load_more_images(batch_size)
+        start = cursor - batch_size
+        results = session.all_image_results[start:cursor]
         return templates.TemplateResponse(
             request,
             "_image_cards.html",
             {
                 "results": results,
-                "image_offset": session.image_offset,
+                "image_offset": start,  # checkbox values are global indices
             },
         )
 

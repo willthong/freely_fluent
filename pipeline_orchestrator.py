@@ -51,16 +51,16 @@ class PipelineOrchestrator:
         return entries
 
     def search_images(
-        self, session: "SessionManager", batch_size: int = 12, offset: int = 0
+        self, session: "SessionManager", batch_size: int = 200
     ) -> list[dict[str, str]]:
         """Search for images matching the session's selected characters.
 
-        Uses the session's current image_offset unless *offset* is
-        explicitly provided.
+        Brave Image Search doesn't support offset pagination, so each call
+        gets up to *batch_size* results (default 200, the API max). Results
+        are stored in the session for client-side pagination.
         """
-        offset = offset or session.image_offset
         characters = session.selected_characters
-        return self._brave.search(characters, count=batch_size, offset=offset)
+        return self._brave.search(characters, count=batch_size)
 
     def fetch_wiktionary_audio_url(
         self, session: "SessionManager"

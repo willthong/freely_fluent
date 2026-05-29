@@ -261,27 +261,34 @@ class SessionManager:
 
     @property
     def image_offset(self) -> int:
-        """Current pagination offset for Brave image search."""
+        """Display cursor: how many image results have been shown so far.
+
+        Unlike the old Brave offset (which Brave ignored in Image Search),
+        this is a client-side cursor into ``all_image_results``.  The first
+        batch shown is ``results[:image_offset]`` after an initial fetch,
+        and ``load_more_images()`` advances the cursor.
+        """
         return self._image_offset
 
     @property
     def all_image_results(self) -> list[dict[str, Any]]:
-        """All image search results accumulated across load-more calls."""
+        """All image search results fetched from Brave (one call per word).
+
+        Brave Image Search has no pagination, so we store all results and
+        paginate client-side.
+        """
         return self._image_results
 
     def store_image_results(self, results: list[dict[str, Any]]) -> None:
-        """Replace (first batch) or append (subsequent batches) image results.
+        """Store results from Brave, replacing any previous results.
 
-        When *offset* is 0 (first fetch), replaces the stored results.
-        When *offset* > 0 (load-more), appends to existing results.
+        Brave Image Search doesn't support offset-based pagination, so
+        we fetch once per word and paginate client-side.
         """
-        if self._image_offset == 0:
-            self._image_results = list(results)
-        else:
-            self._image_results.extend(results)
+        self._image_results = list(results)
 
     def load_more_images(self, batch_size: int = 12) -> int:
-        """Advance the image search offset by *batch_size*. Returns new offset."""
+        """Advance the display cursor by *batch_size*. Returns new cursor."""
         self._image_offset += batch_size
         return self._image_offset
 
