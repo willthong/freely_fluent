@@ -80,7 +80,7 @@ def test_comprehension_template_qfmt():
     model = _get_model_from_apkg(fc)
     comp = model["tmpls"][0]
     assert comp["name"] == "Comprehension"
-    assert comp["qfmt"] == "{{Audio}}<br>{{Jyutping}}{{#PartOfSpeech}} <em>({{PartOfSpeech}})</em>{{/PartOfSpeech}}"
+    assert comp["qfmt"] == '{{Audio}}<br>{{Jyutping}}{{#PartOfSpeech}} <em>({{PartOfSpeech}})</em>{{/PartOfSpeech}}'
 
 
 def test_comprehension_template_afmt():
@@ -91,7 +91,7 @@ def test_comprehension_template_afmt():
     )
     model = _get_model_from_apkg(fc)
     comp = model["tmpls"][0]
-    assert comp["afmt"] == '{{FrontSide}}<hr id="answer">{{Images}}<br>{{Jyutping}}{{#PartOfSpeech}} <em>({{PartOfSpeech}})</em>{{/PartOfSpeech}}<br><audio src="{{Audio}}"></audio>'
+    assert comp["afmt"] == '{{FrontSide}}<hr id="answer">{{Images}}<br>{{Jyutping}}{{#PartOfSpeech}} <em>({{PartOfSpeech}})</em>{{/PartOfSpeech}}<br>{{Audio}}'
 
 
 # ── Production template ──
@@ -117,7 +117,7 @@ def test_production_template_afmt():
     )
     model = _get_model_from_apkg(fc)
     prod = model["tmpls"][1]
-    assert prod["afmt"] == '{{FrontSide}}<hr id="answer">{{Jyutping}}{{#PartOfSpeech}} <em>({{PartOfSpeech}})</em>{{/PartOfSpeech}}<br><audio src="{{Audio}}"></audio>'
+    assert prod["afmt"] == '{{FrontSide}}<hr id="answer">{{Jyutping}}{{#PartOfSpeech}} <em>({{PartOfSpeech}})</em>{{/PartOfSpeech}}<br>{{Audio}}'
 
 
 # ── CSS ──

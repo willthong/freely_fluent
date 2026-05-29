@@ -33,12 +33,12 @@ _MODEL = genanki.Model(
         {
             "name": "Comprehension",
             "qfmt": "{{Audio}}<br>{{Jyutping}}{{#PartOfSpeech}} <em>({{PartOfSpeech}})</em>{{/PartOfSpeech}}",
-            "afmt": "{{FrontSide}}<hr id=\"answer\">{{Images}}<br>{{Jyutping}}{{#PartOfSpeech}} <em>({{PartOfSpeech}})</em>{{/PartOfSpeech}}<br><audio src=\"{{Audio}}\"></audio>",
+            "afmt": "{{FrontSide}}<hr id=\"answer\">{{Images}}<br>{{Jyutping}}{{#PartOfSpeech}} <em>({{PartOfSpeech}})</em>{{/PartOfSpeech}}<br>{{Audio}}",
         },
         {
             "name": "Production",
             "qfmt": "{{Images}}{{#PartOfSpeech}}<br><em>({{PartOfSpeech}})</em>{{/PartOfSpeech}}",
-            "afmt": "{{FrontSide}}<hr id=\"answer\">{{Jyutping}}{{#PartOfSpeech}} <em>({{PartOfSpeech}})</em>{{/PartOfSpeech}}<br><audio src=\"{{Audio}}\"></audio>",
+            "afmt": "{{FrontSide}}<hr id=\"answer\">{{Jyutping}}{{#PartOfSpeech}} <em>({{PartOfSpeech}})</em>{{/PartOfSpeech}}<br>{{Audio}}",
         },
     ],
     css="""
@@ -86,12 +86,12 @@ class CardGenerator:
 
             jyutping_html = format_jyutping(fc.jyutping)
             all_img_tags = "".join(f'<img src="{bn}">' for bn in image_basenames) if image_basenames else ""
-            audio_tag = f'<audio src="{audio_basename}">'
+            audio_field = f"[sound:{audio_basename}]"
             pos = fc.part_of_speech
 
             note = genanki.Note(
                 model=_MODEL,
-                fields=[jyutping_html, all_img_tags, audio_tag, pos],
+                fields=[jyutping_html, all_img_tags, audio_field, pos],
             )
             deck.add_note(note)
 

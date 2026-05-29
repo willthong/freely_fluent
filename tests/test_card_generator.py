@@ -66,13 +66,12 @@ def test_card_directions_have_correct_fields():
         # Check that Jyutping field (fields[0]) has superscript formatting
         assert "nei<sup>5</sup>hou<sup>2</sup>" in fields[0]
 
-        # Check that Audio tag is in one field and img tag in the other
-        # We don't know which is which from the field order alone,
-        # but one field should have Audio and the other should have img
-        has_audio = any('<audio src=' in f for f in fields)
-        has_image = any("img src=" in f for f in fields)
-        assert has_audio
-        assert has_image
+        # Check that Audio field (fields[2]) has Anki [sound:] syntax
+        # and Images field (fields[1]) has img tags
+        assert "<img src=" in fields[1]  # Images field
+        # Audio field uses Anki's [sound:filename] syntax for playback
+        assert fields[2].startswith("[sound:")  # Audio field has Anki sound tag
+        assert fields[2].endswith("]")
 
         conn.close()
 

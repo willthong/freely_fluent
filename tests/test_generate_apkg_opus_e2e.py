@@ -118,7 +118,7 @@ def test_generate_apkg_with_opus_audio_produces_playable_card():
             conn.close()
 
             # One field has Audio tag, the other has img tag
-            audio_field = next(f for f in fields if '<audio src=' in f)
+            audio_field = fields[2]  # Audio field stores just the filename
             image_field = next(f for f in fields if "img src=" in f)
 
             assert audio_basename in audio_field
