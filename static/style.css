@@ -72,6 +72,74 @@ body {
 
 .step.done {
     color: var(--success);
+
+/* ── Word List Bar ── */
+
+.word-list-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 1.25rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 0.85rem;
+}
+
+.word-list-label {
+    color: var(--text);
+    font-weight: 600;
+    margin-right: 0.25rem;
+    white-space: nowrap;
+}
+
+.word-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.15rem 0.4rem;
+    font-size: 0.85rem;
+}
+
+.word-chip-text {
+    color: var(--text-bright);
+}
+
+.word-chip-current {
+    color: var(--accent);
+    font-weight: 700;
+}
+
+.word-chip-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.1rem;
+    height: 1.1rem;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--danger);
+    font-size: 0.85rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.word-chip-remove:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--danger) 20%, transparent);
+}
+
+.word-chip-remove:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
 }
 
 .step + .step::before {
@@ -395,6 +463,57 @@ body {
     max-width: 400px;
     background: var(--surface);
     border-radius: 6px;
+}
+
+/* ── Editable Tone Numbers ── */
+
+.jyutping-editor {
+    text-align: center;
+    margin: 1rem 0 0.25rem;
+}
+
+.jyutping-syllable {
+    display: inline-flex;
+    align-items: baseline;
+    margin: 0 0.15rem;
+}
+
+.jyutping-text {
+    font-size: 1.8rem;
+    color: var(--text-highlight);
+    font-weight: 700;
+}
+
+.tone-input {
+    width: 1.3em;
+    font-size: inherit;
+    font-weight: 700;
+    color: inherit;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    padding: 0;
+    text-align: center;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s;
+    -moz-appearance: textfield;
+    cursor: text;
+}
+
+.tone-input::-webkit-outer-spin-button,
+.tone-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.tone-input:hover {
+    border-bottom-color: color-mix(in srgb, var(--text-bright) 40%, transparent);
+}
+
+.tone-input:focus {
+    border-bottom-color: var(--accent);
 }
 
 /* ── Completion Page ── */

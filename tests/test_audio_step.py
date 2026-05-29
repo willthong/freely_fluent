@@ -128,7 +128,9 @@ def test_audio_step_page_renders_with_player():
 
     body = r.text
     assert "Cantonese Pronunciation" in body
-    assert "nei<sup>5</sup> hou<sup>2</sup>" in body  # Jyutping from selected entry
+    # Jyutping is now stored in the RAW_JYUTPING JS variable (editable tone editor)
+    assert "RAW_JYUTPING" in body
+    assert "nei5 hou2" in body  # Raw jyutping in JS variable
     assert "你好" in body  # Characters from selected entry
     assert 'type="audio/ogg"' in body  # Audio player source
     assert "Confirm" in body  # Confirm button
@@ -181,13 +183,16 @@ def test_audio_step_page_shows_no_audio_available():
     assert r.status_code == 200
     body = r.text
     assert "Cantonese Pronunciation" in body
-    assert "saan<sup>1</sup>" in body  # Jyutping still shown
+    # Jyutping is now stored in the RAW_JYUTPING JS variable (editable tone editor)
+    assert "RAW_JYUTPING" in body
+    assert "saan1" in body  # Raw jyutping in JS variable
     assert "山" in body
     assert "no audio" in body.lower() or "not available" in body.lower()
     assert "Skip" in body
 
     # Wiktionary Confirm button should NOT appear (no wiktionary audio to confirm)
-    assert 'hx-vals={"source":"wiktionary"}' not in body
+    # The confirm button uses dynamic JS hx-vals, so check for the id instead
+    assert 'id="confirm-wiktionary-btn"' not in body
 
     # Recording section should appear as fallback option
     assert "Record your own pronunciation" in body
@@ -511,3 +516,108 @@ def test_audio_step_record_confirm_saves_card():
     assert card.chinese_characters == "你好"
     assert card.jyutping == "nei5 hou2"
     assert card.audio_data == b"mock webm audio data"
+
+
+def test_audio_step_confirm_with_modified_tone():
+    """Confirming audio with a modified jyutping tone saves the card with
+    the edited tone number instead of the original.
+
+    Feature: User can edit the tone number before moving on to the next word.
+    """
+    import base64
+
+    cantodict_path = _make_cantodict_fixture()
+    card_db_path = _make_card_store_fixture()
+
+    wiktionary_client = _make_wiktionary_client_char("你")
+    brave_client = _make_brave_client()
+    audio_download_client = _make_audio_download_client()
+
+    cantodict = CantoneseDictionary(cantodict_path)
+    card_store = CardStore(card_db_path)
+    card_generator = CardGenerator()
+
+    app = create_app(
+        cantodict=cantodict,
+        card_store=card_store,
+        card_generator=card_generator,
+        wiktionary_client=wiktionary_client,
+        brave_client=brave_client,
+        audio_download_client=audio_download_client,
+        api_key="test-key",
+    )
+    client = TestClient(app, raise_server_exceptions=False)
+
+    # 1. Pipeline: start session → translate → entry → image → audio
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+
+    client.get(f"/sessions/{session_id}/translate")
+    client.post(f"/sessions/{session_id}/entries", json={"chinese": "你好"})
+    client.post(f"/sessions/{session_id}/images", json={"result_index": 0})
+
+    # 2. Confirm with a modified jyutping (change tone 2→3: hou2→hou3)
+    r = client.post(
+        f"/audio/{session_id}",
+        json={"source": "wiktionary", "jyutping": "nei5 hou3"},
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["completed"] is True
+
+    # 3. Verify flashcard saved with MODIFIED jyutping, not original
+    flashcards = card_store.get_all()
+    assert len(flashcards) == 1
+    card = flashcards[0]
+    assert card.jyutping == "nei5 hou3"  # modified tone
+    assert card.english_word == "hello"
+    assert card.chinese_characters == "你好"
+
+
+def test_audio_step_confirm_without_tone_override_uses_original():
+    """Confirming audio without a jyutping override saves the card with the
+    original jyutping from the selected entry.
+
+    Ensures backward compatibility: existing confirmations still work.
+    """
+    cantodict_path = _make_cantodict_fixture()
+    card_db_path = _make_card_store_fixture()
+
+    wiktionary_client = _make_wiktionary_client_char("你")
+    brave_client = _make_brave_client()
+    audio_download_client = _make_audio_download_client()
+
+    cantodict = CantoneseDictionary(cantodict_path)
+    card_store = CardStore(card_db_path)
+    card_generator = CardGenerator()
+
+    app = create_app(
+        cantodict=cantodict,
+        card_store=card_store,
+        card_generator=card_generator,
+        wiktionary_client=wiktionary_client,
+        brave_client=brave_client,
+        audio_download_client=audio_download_client,
+        api_key="test-key",
+    )
+    client = TestClient(app, raise_server_exceptions=False)
+
+    # 1. Pipeline: start session → translate → entry → image → audio
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+
+    client.get(f"/sessions/{session_id}/translate")
+    client.post(f"/sessions/{session_id}/entries", json={"chinese": "你好"})
+    client.post(f"/sessions/{session_id}/images", json={"result_index": 0})
+
+    # 2. Confirm WITHOUT jyutping override (backward compat)
+    r = client.post(f"/audio/{session_id}", json={"source": "wiktionary"})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["completed"] is True
+
+    # 3. Verify flashcard saved with ORIGINAL jyutping
+    flashcards = card_store.get_all()
+    assert len(flashcards) == 1
+    card = flashcards[0]
+    assert card.jyutping == "nei5 hou2"  # original, unchanged

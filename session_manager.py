@@ -37,6 +37,7 @@ class SessionManager:
         self._selected_audio: bytes | None = None
         self._recording: bytes | None = None
         self._image_offset = 0
+        self._image_results: list[dict[str, Any]] = []
         self._session_id: str = ""
         self._include_pos: bool = True
 
@@ -44,6 +45,11 @@ class SessionManager:
     def is_complete(self) -> bool:
         """True when all words have been processed."""
         return self._word_index >= len(self._words)
+
+    @property
+    def words(self) -> list[str]:
+        """All remaining words in the session."""
+        return self._words
 
     @property
     def current_word(self) -> str | None:
@@ -90,11 +96,13 @@ class SessionManager:
             self._step_index = 2
 
     def select_audio(
-        self, audio: bytes | None = None
+        self, audio: bytes | None = None, jyutping: str | None = None
     ) -> Union["Flashcard", dict[str, Any], None]:
         """Record the chosen audio, optionally save to CardStore, advance.
 
         If *audio* is None, uses the saved browser recording (if any).
+        If *jyutping* is provided, it overrides the entry's original jyutping
+        (allowing users to edit tone numbers before confirming).
         When a *card_store* is injected and all fields are present, builds
         a ``Flashcard``, saves it, and returns the saved ``Flashcard``.
         When no *card_store* is injected, returns a card data ``dict``.
@@ -102,6 +110,8 @@ class SessionManager:
         cannot be resolved to actual bytes (no save/advance occurs).
         """
         self._selected_audio = audio
+        if jyutping is not None and self._selected_entry is not None:
+            self._selected_entry["jyutping"] = jyutping
         card_data = self._build_card_data()
         if card_data is None:
             return None
@@ -135,6 +145,20 @@ class SessionManager:
     def skip(self) -> None:
         """Discard the current word and advance to the next."""
         self._advance_to_next_word()
+
+    def remove_word_at(self, index: int) -> None:
+        """Remove the word at *index* from the word list.
+
+        Adjusts ``_word_index`` so processing continues correctly:
+        - If a processed word (index < _word_index) is removed, decrement.
+        - If the current or a future word is removed, the index is
+          unchanged (the next word slides into position or the list ends).
+        """
+        if index < 0 or index >= len(self._words):
+            raise IndexError(f"Word index {index} out of range (0-{len(self._words)-1})")
+        if index < self._word_index:
+            self._word_index -= 1
+        del self._words[index]
 
     def _build_flashcard(self, card_data: dict[str, Any], image_data_list: list[bytes]) -> "Flashcard":
         """Build a Flashcard dataclass from card data dict and pre-resolved image bytes list."""
@@ -240,6 +264,22 @@ class SessionManager:
         """Current pagination offset for Brave image search."""
         return self._image_offset
 
+    @property
+    def all_image_results(self) -> list[dict[str, Any]]:
+        """All image search results accumulated across load-more calls."""
+        return self._image_results
+
+    def store_image_results(self, results: list[dict[str, Any]]) -> None:
+        """Replace (first batch) or append (subsequent batches) image results.
+
+        When *offset* is 0 (first fetch), replaces the stored results.
+        When *offset* > 0 (load-more), appends to existing results.
+        """
+        if self._image_offset == 0:
+            self._image_results = list(results)
+        else:
+            self._image_results.extend(results)
+
     def load_more_images(self, batch_size: int = 12) -> int:
         """Advance the image search offset by *batch_size*. Returns new offset."""
         self._image_offset += batch_size
@@ -255,3 +295,4 @@ class SessionManager:
         self._selected_audio = None
         self._recording = None
         self._image_offset = 0
+        self._image_results = []

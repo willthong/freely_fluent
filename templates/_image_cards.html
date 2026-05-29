@@ -1,0 +1,7 @@
+{% for img in results %}
+  <label class="image-card">
+    <input type="checkbox" name="images" value="{{ image_offset + loop.index0 }}" class="image-checkbox">
+    <span class="image-checkmark"></span>
+    <img src="{{ img.thumbnail_url }}" alt="" class="image-thumb">
+  </label>
+{% endfor %}

@@ -41,8 +41,14 @@ class PipelineOrchestrator:
     def lookup_translations(
         self, session: "SessionManager", word: str
     ) -> list[dict[str, Any]]:
-        """Look up Cantonese entries for *word* via CantoDict."""
-        return self._cantodict.lookup(word)
+        """Look up Cantonese entries for *word* via CantoDict.
+
+        Results are sorted by ascending chinese character length so that
+        shorter/simpler translations appear first.
+        """
+        entries = self._cantodict.lookup(word)
+        entries.sort(key=lambda e: len(e["chinese"]))
+        return entries
 
     def search_images(
         self, session: "SessionManager", batch_size: int = 12, offset: int = 0
@@ -79,7 +85,9 @@ class PipelineOrchestrator:
         return audio_bytes
 
     def confirm_audio(
-        self, session: "SessionManager", source: str, audio_bytes: bytes | None = None
+        self, session: "SessionManager", source: str,
+        audio_bytes: bytes | None = None,
+        jyutping: str | None = None,
     ) -> "Flashcard" | None:
         """Confirm audio choice, save flashcard via SessionManager, advance.
 
@@ -88,6 +96,8 @@ class PipelineOrchestrator:
         Otherwise resolves from source (recording, pre-played audio, or
         fresh wiktionary download). Recording always takes precedence over
         pre-played audio to avoid using stale bytes from a previous play.
+        If *jyutping* is provided, it overrides the entry's jyutping
+        (allowing the user to edit tone numbers before confirming).
 
         Returns the saved Flashcard (or None if fields are incomplete).
         """
@@ -110,4 +120,4 @@ class PipelineOrchestrator:
 
         if audio_bytes is None:
             return None
-        return session.select_audio(audio_bytes)
+        return session.select_audio(audio_bytes, jyutping=jyutping)

@@ -8,7 +8,7 @@
 {% endblock %}
 {% block content %}
 <h1>Cantonese Pronunciation for {{ characters }}</h1>
-<p class="audio-jyutping">{{ jyutping|format_jyutping }}</p>
+<div id="jyutping-editor" class="jyutping-editor"></div>
 {% if part_of_speech %}<p class="audio-pos">{{ part_of_speech }}</p>{% endif %}
 {% if audio_url %}
 <div class="audio-player">
@@ -23,7 +23,7 @@
           class="btn-success"
           hx-ext="json-enc"
           hx-post="/audio/{{ session_id }}"
-          hx-vals='{"source":"wiktionary"}'
+          hx-vals='js:{"source":"wiktionary","jyutping": getModifiedJyutping()}'
           hx-target="#result"
           hx-on::click="setupConfirmButton(this)"
           hx-on::after-request="handleConfirmResponse(event)">
@@ -63,7 +63,7 @@
             class="btn-success"
             hx-ext="json-enc"
             hx-post="/audio/{{ session_id }}"
-            hx-vals='{"source":"recording"}'
+            hx-vals='js:{"source":"recording","jyutping": getModifiedJyutping()}'
             hx-target="#result"
             hx-on::click="setupConfirmButton(this)"
             hx-on::after-request="handleConfirmResponse(event)">
@@ -83,6 +83,59 @@
 var mediaRecorder = null;
 var audioChunks = [];
 var recordingBase64 = null;
+
+// ── Editable Jyutping Tone Numbers ──
+
+var RAW_JYUTPING = '{{ jyutping|safe }}';
+
+/** Split a jyutping syllable (e.g. "nei5") into text and tone. */
+function splitSyllable(syl) {
+  var m = syl.match(/^(.+?)(\d+)$/);
+  if (m) {
+    return { text: m[1], tone: m[2] };
+  }
+  return { text: syl, tone: '' };
+}
+
+/** Render the jyutping as editable tone-number inputs. */
+function renderJyutpingEditor(raw) {
+  if (!raw) {
+    document.getElementById('jyutping-editor').innerHTML = '';
+    return;
+  }
+  var parts = raw.split(/(\s+)/);  // keep separators
+  var html = '';
+  for (var i = 0; i < parts.length; i++) {
+    var part = parts[i];
+    var trimmed = part.trim();
+    if (trimmed === '') {
+      html += part;  // preserve whitespace as-is
+    } else {
+      var syl = splitSyllable(trimmed);
+      html += '<span class="jyutping-syllable">';
+      html += '<span class="jyutping-text">' + syl.text + '</span>';
+      html += '<input type="number" class="tone-input" value="' + syl.tone + '" min="1" max="9" step="1" size="1">';
+      html += '</span>';
+    }
+  }
+  document.getElementById('jyutping-editor').innerHTML = '<p class="audio-jyutping">' + html + '</p>';
+}
+
+/** Read the current tone inputs and rebuild the jyutping string. */
+function getModifiedJyutping() {
+  var syllables = document.querySelectorAll('.jyutping-syllable');
+  var parts = [];
+  for (var i = 0; i < syllables.length; i++) {
+    var syl = syllables[i];
+    var text = syl.querySelector('.jyutping-text').textContent;
+    var tone = syl.querySelector('.tone-input').value || '';
+    parts.push(text + tone);
+  }
+  return parts.join(' ');
+}
+
+// Render on page load
+renderJyutpingEditor(RAW_JYUTPING);
 
 function setupConfirmButton(btn) {
   btn.disabled = true;

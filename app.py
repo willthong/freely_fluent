@@ -42,6 +42,7 @@ class SessionStartRequest(BaseModel):
 
 class AudioSelectRequest(BaseModel):
     source: str
+    jyutping: str | None = None
 
 
 class RecordingRequest(BaseModel):
@@ -74,7 +75,12 @@ def create_app(
 
     app = FastAPI(title="Freely Fluent")
 
-    app.mount("/static", StaticFiles(directory="static"), name="static")
+    # Mount static files if the directory exists; warn if missing.
+    static_dir = "static"
+    if os.path.isdir(static_dir):
+        app.mount("/static", StaticFiles(directory=static_dir), name="static")
+    else:
+        logger.warning("Static directory '%s' not found — skipping static file mount", static_dir)
 
     env = Environment(loader=FileSystemLoader("templates"), cache_size=0)
     env.filters["format_jyutping"] = format_jyutping
@@ -285,6 +291,8 @@ def create_app(
                 "entries": entries,
                 "include_pos": session._include_pos,
                 "current_step": session.current_step,
+                "words": session.words,
+                "word_index": session._word_index,
             },
         )
 
@@ -346,6 +354,7 @@ def create_app(
         if not characters:
             return {"error": "no entry selected"}
         results = _get_orchestrator().search_images(session)
+        session.store_image_results(results)
         return {"results": results}
 
     @app.post("/sessions/{session_id}/images")
@@ -356,7 +365,7 @@ def create_app(
         characters = session.selected_characters
         if not characters:
             return {"error": "no entry selected"}
-        results = _get_orchestrator().search_images(session)
+        results = session.all_image_results or _get_orchestrator().search_images(session)
         if req.result_index < 0 or req.result_index >= len(results):
             return Response(status_code=404)
         session.add_image(results[req.result_index])
@@ -366,7 +375,7 @@ def create_app(
 
     @app.get("/sessions/{session_id}/images/load-more")
     def load_more_images(session_id: str):
-        """Fetch the next batch of image results using the session's offset."""
+        """Fetch the next batch of image results and append to accumulated results."""
         session = _sessions.get(session_id)
         if session is None:
             return Response(status_code=404)
@@ -375,6 +384,7 @@ def create_app(
             return {"error": "no entry selected"}
         offset = session.load_more_images()
         results = _get_orchestrator().search_images(session, offset=offset)
+        session.store_image_results(results)
         return {"results": results}
 
     # ── Wiktionary Audio ──
@@ -450,7 +460,7 @@ def create_app(
         characters = session.selected_characters
         if not characters:
             return {"error": "no entry selected"}
-        result = _get_orchestrator().confirm_audio(session, req.source)
+        result = _get_orchestrator().confirm_audio(session, req.source, jyutping=req.jyutping)
         if result is None:
             return {"error": "audio confirmation failed, check entry and images"}
         return {
@@ -502,7 +512,7 @@ def create_app(
         characters = session.selected_characters
         if not characters:
             return {"error": "no entry selected"}
-        result = _get_orchestrator().confirm_audio(session, req.source)
+        result = _get_orchestrator().confirm_audio(session, req.source, jyutping=req.jyutping)
         if result is None:
             return {"error": "audio confirmation failed, check entry and images"}
         return {
@@ -524,6 +534,7 @@ def create_app(
         if session.current_step != "image":
             return Response(status_code=400)
         results = _get_orchestrator().search_images(session)
+        session.store_image_results(results)
         return templates.TemplateResponse(
             request,
             "image_step.html",
@@ -531,6 +542,31 @@ def create_app(
                 "session_id": session_id,
                 "results": results,
                 "current_step": session.current_step,
+                "image_offset": session.image_offset,
+                "all_result_count": len(session.all_image_results),
+            },
+        )
+
+    @app.get("/image/{session_id}/load-more")
+    def load_more_image_cards(request: Request, session_id: str):
+        """HTMX endpoint: fetch next batch of images and return card HTML."""
+        session = _sessions.get(session_id)
+        if session is None:
+            return Response(status_code=404)
+        characters = session.selected_characters
+        if not characters:
+            return Response(status_code=400)
+        if session.current_step != "image":
+            return Response(status_code=400)
+        offset = session.load_more_images()
+        results = _get_orchestrator().search_images(session, offset=offset)
+        session.store_image_results(results)
+        return templates.TemplateResponse(
+            request,
+            "_image_cards.html",
+            {
+                "results": results,
+                "image_offset": session.image_offset,
             },
         )
 
@@ -542,7 +578,7 @@ def create_app(
         characters = session.selected_characters
         if not characters:
             return Response(status_code=400)
-        results = _get_orchestrator().search_images(session)
+        results = session.all_image_results or _get_orchestrator().search_images(session)
         for idx_str in images or []:
             idx = int(idx_str)
             if 0 <= idx < len(results):
@@ -573,6 +609,25 @@ def create_app(
             "current_word": session.current_word,
             "current_step": session.current_step,
             "completed": session.is_complete,
+        }
+
+    # ── Remove word ──
+
+    @app.post("/sessions/{session_id}/words/{word_index:int}/remove")
+    def remove_word(session_id: str, word_index: int):
+        """Remove a word from the session's word list."""
+        session = _sessions.get(session_id)
+        if session is None:
+            return Response(status_code=404)
+        try:
+            session.remove_word_at(word_index)
+        except IndexError:
+            return Response(status_code=404)
+        return {
+            "words": session.words,
+            "current_word": session.current_word,
+            "current_step": session.current_step,
+            "is_complete": session.is_complete,
         }
 
     # ── Export ──

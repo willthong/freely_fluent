@@ -194,3 +194,41 @@ def test_translate_page_no_results_shows_skip():
     assert r.status_code == 200
     assert "No results" in r.text or "no translation" in r.text.lower()
     assert "skip" in r.text.lower() or "/skip" in r.text
+
+
+def test_translate_page_shows_word_list_with_remove_buttons():
+    """The translate page shows the remaining word list with delete buttons.
+
+    Feature: User can delete a word from the session.
+    """
+    cantodict_path = _make_cantodict_fixture()
+    card_db_path = _make_card_store_fixture()
+
+    cantodict = CantoneseDictionary(cantodict_path)
+    card_store = CardStore(card_db_path)
+    card_generator = CardGenerator()
+
+    app = create_app(
+        cantodict=cantodict,
+        card_store=card_store,
+        card_generator=card_generator,
+        api_key="test-key",
+    )
+    client = TestClient(app)
+
+    r = client.post("/sessions", json={"words": ["apple", "banana", "cherry"]})
+    session_id = r.json()["session_id"]
+
+    r = client.get(f"/translate/{session_id}")
+    assert r.status_code == 200
+    body = r.text
+
+    # Word list bar is present
+    assert 'class="word-list-bar"' in body
+    assert "apple" in body
+    assert "banana" in body
+    assert "cherry" in body
+
+    # Each word has a remove button (hx-post to remove endpoint)
+    assert 'hx-post="/sessions/' in body
+    assert '/remove"' in body

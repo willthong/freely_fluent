@@ -225,3 +225,74 @@ def test_two_word_pipeline_advances_then_completes():
     assert len(cards) == 2
     assert cards[0].english_word == "hello"
     assert cards[1].english_word == "goodbye"
+
+
+def test_lookup_translations_sorted_by_chinese_length_ascending():
+    """lookup_translations returns entries sorted by ascending chinese character length.
+
+    This improves UX by showing shorter/simpler translations first.
+    """
+    import tempfile
+    import sqlite3
+    from card_store import CardStore
+    from session_manager import SessionManager
+    from cantodict_lookup import CantoneseDictionary
+    from brave_image_search import BraveImageSearch
+    from wiktionary_audio import WiktionaryAudio
+    from audio_service import AudioService
+
+    # Fixture: three entries for the same English word with varying chinese length
+    # All entries have "love" in the definition so the lookup finds all three
+    entries = [
+        ("我愛你", "ngo5 oi3 nei5", "love (longer) — 3 chars"),
+        ("你好", "nei5 hou2", "love (medium) — 2 chars"),
+        ("好", "hou2", "love (short) — 1 char"),
+    ]
+    cantodict_path = tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False)
+    conn = sqlite3.connect(cantodict_path.name)
+    conn.execute("""
+        CREATE TABLE Entries (
+            entry_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chinese TEXT,
+            entry_type INTEGER NOT NULL,
+            cantodict_id INTEGER NOT NULL,
+            definition TEXT,
+            jyutping TEXT
+        )
+    """)
+    for i, (chinese, jyutping, definition) in enumerate(entries, start=100):
+        conn.execute(
+            "INSERT INTO Entries (chinese, entry_type, cantodict_id, definition, jyutping) "
+            "VALUES (?, 2, ?, ?, ?)",
+            (chinese, i, definition, jyutping),
+        )
+    conn.commit()
+    conn.close()
+
+    card_db_path = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+
+    cantodict = CantoneseDictionary(cantodict_path.name)
+    card_store = CardStore(card_db_path.name)
+    wiktionary = WiktionaryAudio(client=_make_wiktionary_client())
+    brave = BraveImageSearch(api_key="test-key", client=_make_brave_client())
+    audio_svc = AudioService(client=_make_audio_download_client())
+    audio_download = _make_audio_download_client()
+    session = SessionManager(["love"], card_store=card_store, http_client=audio_download)
+
+    orch = PipelineOrchestrator(
+        cantodict=cantodict, brave=brave,
+        wiktionary=wiktionary, audio_svc=audio_svc,
+    )
+
+    # Act
+    results = orch.lookup_translations(session, session.current_word)
+
+    # Assert: sorted by chinese length ascending (shortest first)
+    assert len(results) == 3
+    assert results[0]["chinese"] == "好"       # 1 char
+    assert results[1]["chinese"] == "你好"     # 2 chars
+    assert results[2]["chinese"] == "我愛你"   # 3 chars
+    # Verify jyutping is preserved correctly
+    assert results[0]["jyutping"] == "hou2"
+    assert results[1]["jyutping"] == "nei5 hou2"
+    assert results[2]["jyutping"] == "ngo5 oi3 nei5" 

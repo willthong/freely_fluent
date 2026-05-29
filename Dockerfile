@@ -16,6 +16,7 @@ RUN uv sync --frozen
 # Copy application source
 COPY *.py ./
 COPY templates/ ./templates/
+COPY static/ ./static/
 COPY data/ ./data/
 
 # Create runtime data directory for card store DB

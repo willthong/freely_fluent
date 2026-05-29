@@ -7,6 +7,27 @@
 </div>
 {% endblock %}
 {% block content %}
+
+<!-- Word list with delete buttons -->
+<div class="word-list-bar">
+  <span class="word-list-label">Words:</span>
+  {% for w in words %}
+    <span class="word-chip">
+      <span class="word-chip-text{% if loop.index0 == word_index %} word-chip-current{% endif %}">{{ w }}</span>
+      <button type="button"
+              class="word-chip-remove"
+              hx-post="/sessions/{{ session_id }}/words/{{ loop.index0 }}/remove"
+              hx-target="body"
+              hx-swap="innerHTML"
+              hx-trigger="click"
+              title="Remove '{{ w }}' from the list"
+              {% if loop.index0 < word_index %}disabled{% endif %}>
+        &times;
+      </button>
+    </span>
+  {% endfor %}
+</div>
+
 <h1>Translate "{{ english_word }}"</h1>
 {% if entries %}
 <p>Pick the Cantonese translation you want to learn:</p>

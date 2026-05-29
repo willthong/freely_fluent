@@ -9,17 +9,23 @@
 {% block content %}
 <h1>Select Images</h1>
 {% if results %}
-<form method="post" action="/image/{{ session_id }}">
-  <div class="image-grid">
-  {% for img in results %}
-    <label class="image-card">
-      <input type="checkbox" name="images" value="{{ loop.index0 }}" class="image-checkbox">
-      <span class="image-checkmark"></span>
-      <img src="{{ img.thumbnail_url }}" alt="" class="image-thumb">
-    </label>
-  {% endfor %}
+<form id="image-form" method="post" action="/image/{{ session_id }}">
+  <div id="image-grid" class="image-grid">
+    {% include "_image_cards.html" with context %}
   </div>
-  <p><button type="submit" class="btn-primary">Continue to Audio</button></p>
+  <p>
+    <button type="submit" class="btn-primary">Continue to Audio</button>
+    <button type="button"
+            id="load-more-btn"
+            class="btn-text"
+            hx-get="/image/{{ session_id }}/load-more"
+            hx-target="#image-grid"
+            hx-swap="beforeend"
+            hx-indicator="#load-more-indicator">
+      Load more images
+    </button>
+    <span id="load-more-indicator" class="htmx-indicator">Loading...</span>
+  </p>
 </form>
 <p><a href="/sessions/{{ session_id }}/skip" class="skip-link">Skip this word</a></p>
 {% else %}
