@@ -1,22 +1,29 @@
 {% extends "base.html" %}
+{% block step_bar %}
+<div class="step-bar">
+  <span class="step active">Translate</span>
+  <span class="step">Image</span>
+  <span class="step">Audio</span>
+</div>
+{% endblock %}
 {% block content %}
 <h1>Translate "{{ english_word }}"</h1>
 {% if entries %}
 <p>Pick the Cantonese translation you want to learn:</p>
 <form method="post" action="/translate/{{ session_id }}/select">
   {% for entry in entries %}
-  <div class="entry">
-    <label>
-      <input type="radio" name="chinese" value="{{ entry.chinese }}">
-      <strong>{{ entry.chinese }}</strong>
-      <span class="jyutping">[{{ entry.jyutping|format_jyutping }}]</span>
-      — {{ entry.definition }}
+  <div class="entry-card">
+    <label class="entry-label">
+      <input type="radio" name="chinese" value="{{ entry.chinese }}" class="entry-radio">
+      <span class="entry-chinese">{{ entry.chinese }}</span>
+      <span class="entry-jyutping">{{ entry.jyutping|format_jyutping }}</span>
+      <span class="entry-definition">{{ entry.definition }}</span>
     </label>
   </div>
   {% endfor %}
   <p class="pos-toggle">
     <label>
-      <input type="checkbox" name="include_pos" id="include_pos"
+      <input type="checkbox" name="include_pos" id="include_pos" class="pos-checkbox"
              hx-post="/sessions/{{ session_id }}/pos-toggle"
              hx-ext="json-enc"
              hx-vals='{"include_pos": event.target.checked}'
@@ -26,11 +33,11 @@
       Show part-of-speech hints
     </label>
   </p>
-  <p><button type="submit">Continue to Images</button></p>
+  <p><button type="submit" class="btn-primary">Continue to Images</button></p>
 </form>
-<p><a href="/sessions/{{ session_id }}/skip">Skip this word</a></p>
+<p><a href="/sessions/{{ session_id }}/skip" class="skip-link">Skip this word</a></p>
 {% else %}
 <p>No translation entries found for "{{ english_word }}".</p>
-<p><a href="/sessions/{{ session_id }}/skip">Skip this word</a></p>
+<p><a href="/sessions/{{ session_id }}/skip" class="skip-link">Skip this word</a></p>
 {% endif %}
 {% endblock %}

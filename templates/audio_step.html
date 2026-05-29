@@ -1,7 +1,15 @@
 {% extends "base.html" %}
+{% block step_bar %}
+<div class="step-bar">
+  <span class="step done">Translate</span>
+  <span class="step done">Image</span>
+  <span class="step active">Audio</span>
+</div>
+{% endblock %}
 {% block content %}
 <h1>Cantonese Pronunciation for {{ characters }}</h1>
-<p class="jyutping"><strong>{{ jyutping|format_jyutping }}</strong>{% if part_of_speech %} <em>({{ part_of_speech }})</em>{% endif %}</p>
+<p class="audio-jyutping">{{ jyutping|format_jyutping }}</p>
+{% if part_of_speech %}<p class="audio-pos">{{ part_of_speech }}</p>{% endif %}
 {% if audio_url %}
 <div class="audio-player">
   <audio controls>
@@ -12,6 +20,7 @@
 <p>
   <button type="button"
           id="confirm-wiktionary-btn"
+          class="btn-success"
           hx-ext="json-enc"
           hx-post="/audio/{{ session_id }}"
           hx-vals='{"source":"wiktionary"}'
@@ -28,27 +37,30 @@
 {% endif %}
 
 <!-- Recording section -->
-<div id="recording-section" class="recording-section">
+<div id="recording-section" class="recording-section recording-card">
   <h2>Record your own pronunciation</h2>
   <p>
     <button type="button"
             id="record-btn"
-            onclick="startRecording()">Record</button>
+            class="btn-magenta"
+            onclick="startRecording()">&#x1F399; Record</button>
     <button type="button"
             id="stop-btn"
+            class="btn-danger"
             onclick="stopRecording()"
             disabled>Stop</button>
   </p>
-  <p id="recording-status" style="display:none;">Recording...</p>
+  <p id="recording-status" class="recording-status" style="display:none;">Recording...</p>
 </div>
 
 <!-- Recording preview (hidden until recording submitted) -->
-<div id="recording-preview" style="display:none;">
+<div id="recording-preview" class="recording-preview preview-card" style="display:none;">
   <h2>Preview your recording</h2>
   <audio id="preview-audio" controls></audio>
   <p>
     <button type="button"
             id="confirm-recording-btn"
+            class="btn-success"
             hx-ext="json-enc"
             hx-post="/audio/{{ session_id }}"
             hx-vals='{"source":"recording"}'
@@ -59,11 +71,12 @@
     </button>
     <button type="button"
             onclick="reRecord()"
-            id="rerecord-btn">Re-record</button>
+            id="rerecord-btn"
+            class="btn-text">Re-record</button>
   </p>
 </div>
 
-<p><a href="/sessions/{{ session_id }}/skip">Skip this word</a></p>
+<p><a href="/sessions/{{ session_id }}/skip" class="skip-link">Skip this word</a></p>
 <div id="result"></div>
 
 <script>

@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 import httpx
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from jinja2 import Environment, FileSystemLoader
 from pydantic import BaseModel
@@ -72,6 +73,8 @@ def create_app(
     """Create a FastAPI app with injected dependencies."""
 
     app = FastAPI(title="Freely Fluent")
+
+    app.mount("/static", StaticFiles(directory="static"), name="static")
 
     env = Environment(loader=FileSystemLoader("templates"), cache_size=0)
     env.filters["format_jyutping"] = format_jyutping
@@ -281,6 +284,7 @@ def create_app(
                 "english_word": session.current_word,
                 "entries": entries,
                 "include_pos": session._include_pos,
+                "current_step": session.current_step,
             },
         )
 
@@ -481,6 +485,7 @@ def create_app(
                 "jyutping": jyutping,
                 "audio_url": url,
                 "part_of_speech": part_of_speech,
+                "current_step": session.current_step,
             },
         )
 
@@ -522,7 +527,11 @@ def create_app(
         return templates.TemplateResponse(
             request,
             "image_step.html",
-            {"session_id": session_id, "results": results},
+            {
+                "session_id": session_id,
+                "results": results,
+                "current_step": session.current_step,
+            },
         )
 
     @app.post("/image/{session_id}")

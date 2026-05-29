@@ -1,19 +1,29 @@
 {% extends "base.html" %}
+{% block step_bar %}
+<div class="step-bar">
+  <span class="step done">Translate</span>
+  <span class="step active">Image</span>
+  <span class="step">Audio</span>
+</div>
+{% endblock %}
 {% block content %}
 <h1>Select Images</h1>
 {% if results %}
 <form method="post" action="/image/{{ session_id }}">
+  <div class="image-grid">
   {% for img in results %}
-  <label>
-    <input type="checkbox" name="images" value="{{ loop.index0 }}">
-    <img src="{{ img.thumbnail_url }}" width="200">
-  </label>
+    <label class="image-card">
+      <input type="checkbox" name="images" value="{{ loop.index0 }}" class="image-checkbox">
+      <span class="image-checkmark"></span>
+      <img src="{{ img.thumbnail_url }}" alt="" class="image-thumb">
+    </label>
   {% endfor %}
-  <button type="submit">Continue to Audio</button>
+  </div>
+  <p><button type="submit" class="btn-primary">Continue to Audio</button></p>
 </form>
-<p><a href="/sessions/{{ session_id }}/skip">Skip this word</a></p>
+<p><a href="/sessions/{{ session_id }}/skip" class="skip-link">Skip this word</a></p>
 {% else %}
 <p>No images found.</p>
-<p><a href="/sessions/{{ session_id }}/skip">Skip this word</a></p>
+<p><a href="/sessions/{{ session_id }}/skip" class="skip-link">Skip this word</a></p>
 {% endif %}
 {% endblock %}

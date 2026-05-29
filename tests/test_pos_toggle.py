@@ -321,4 +321,4 @@ def test_end_to_end_pos_on_shows_pos_on_card():
     # Completion screen SHOULD show POS
     complete_resp = client.get(f"/complete/{session_id}")
     html = complete_resp.text
-    assert "(n)" in html, "POS should appear in completion when toggled on"
+    assert "<em>n</em>" in html, "POS should appear in completion when toggled on"

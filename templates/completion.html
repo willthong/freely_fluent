@@ -1,23 +1,38 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>All Done!</h1>
-<p>You've completed {{ card_count }} Cantonese flashcard{{ 's' if card_count != 1 }}.</p>
+<div class="success-banner">
+  <span class="success-checkmark">&#10003;</span>
+  <h1>All Done!</h1>
+  <p>You've completed {{ card_count }} Cantonese flashcard{{ 's' if card_count != 1 }}.</p>
+</div>
 {% if cards %}
-<h2>Summary</h2>
-<ul class="card-list">
+<div class="table-wrapper">
+<table class="completion-table">
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Cantonese</th>
+      <th>Jyutping</th>
+      <th>Part of Speech</th>
+      <th>English</th>
+    </tr>
+  </thead>
+  <tbody>
   {% for card in cards %}
-  <li>
-    <strong>{{ card.chinese_characters }}</strong>
-    <span class="jyutping">[{{ card.jyutping }}]</span>
-    {% if card.part_of_speech %}<em>({{ card.part_of_speech }})</em>{% endif %}
-    — {{ card.english_word }}
-  </li>
+    <tr>
+      <td>{{ loop.index }}</td>
+      <td class="cell-cantonese">{{ card.chinese_characters }}</td>
+      <td class="cell-jyutping">{{ card.jyutping|format_jyutping }}</td>
+      <td class="cell-pos">{% if card.part_of_speech %}<em>{{ card.part_of_speech }}</em>{% endif %}</td>
+      <td class="cell-english">{{ card.english_word }}</td>
+    </tr>
   {% endfor %}
-</ul>
+  </tbody>
+</table>
+</div>
 {% endif %}
-<p>
-  <a href="{{ export_url }}" class="btn">Export .apkg</a>
-  &nbsp;
-  <a href="/">Start New Session</a>
+<p class="completion-actions">
+  <a href="{{ export_url }}" class="btn-primary">Export .apkg</a>
+  <a href="/" class="text-link">Start New Session</a>
 </p>
 {% endblock %}

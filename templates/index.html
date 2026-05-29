@@ -1,15 +1,16 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Freely Fluent — Cantonese Flashcards</h1>
+<h1 class="index-h1">Freely Fluent</h1>
+<p class="index-subtitle">Cantonese Flashcards</p>
 <form method="post" action="/words">
   <label for="words">Paste a list of English words (one per line):</label>
-  <textarea id="words" name="words" rows="8" cols="60"
+  <textarea id="words" name="words" class="index-textarea" rows="8" cols="60"
             placeholder="hello&#10;goodbye&#10;thank you"></textarea>
   <p>
-    <button type="submit">Start</button>
+    <button type="submit" class="btn-primary">Start</button>
   </p>
   {% if error %}
-  <p class="error">{{ error }}</p>
+  <p class="error-box">{{ error }}</p>
   {% endif %}
 </form>
 {% endblock %}

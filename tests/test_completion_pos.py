@@ -80,8 +80,8 @@ def test_completion_pos_shown_with_italics():
     assert page.status_code == 200
     html = page.text
 
-    # POS should be in <em> tags
-    assert "<em>(adj)</em>" in html
+    # POS should be in <em> tags (without parentheses)
+    assert "<em>adj</em>" in html
 
 
 def test_completion_no_pos_shown_when_empty():
@@ -110,7 +110,7 @@ def test_completion_no_pos_shown_when_empty():
     assert page.status_code == 200
     html = page.text
 
-    # No POS brackets should appear
-    assert "(adj)" not in html
-    assert "(v)" not in html
-    assert "(n)" not in html
+    # No POS text should appear
+    assert '<em>adj</em>' not in html
+    assert '<em>v</em>' not in html
+    assert '<em>n</em>' not in html

@@ -20,7 +20,7 @@ def _env():
 
 
 def test_template_shows_pos_when_present():
-    """audio_step.html shows POS in <em> when part_of_speech is passed."""
+    """audio_step.html shows POS in <p class="audio-pos"> when part_of_speech is passed."""
     env = _env()
     template = env.get_template("audio_step.html")
     html = template.render(
@@ -30,7 +30,8 @@ def test_template_shows_pos_when_present():
         audio_url="http://example.com/audio.ogg",
         part_of_speech="v",
     )
-    assert "<em>(v)</em>" in html
+    assert 'class="audio-pos"' in html
+    assert "v" in html
 
 
 def test_template_no_pos_when_empty():
@@ -44,8 +45,7 @@ def test_template_no_pos_when_empty():
         audio_url="http://example.com/audio.ogg",
         part_of_speech="",
     )
-    assert "<em>(v)</em>" not in html
-    assert "<em>(n)</em>" not in html
+    assert 'class="audio-pos"' not in html
 
 
 def _build_app_with_mock(cantodict, capture):
