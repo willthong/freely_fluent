@@ -1,114 +1,230 @@
 {
-  "/home/will/projects/freely_fluent/brave_image_search.py": {
-    "mtime": 1778168679.1717162,
-    "hash": "8883f73906fbe65784f6e1b5fb6d7984"
+  "version": 1,
+  "generated_at": "2026-05-29T13:24:00.165253+00:00",
+  "built_at_commit": "unknown",
+  "corpus": {
+    "total_files": 53,
+    "total_words": 107401,
+    "code_files": 0,
+    "doc_files": 0,
+    "test_files": 0
   },
-  "/home/will/projects/freely_fluent/session_manager.py": {
-    "mtime": 1778187043.3702571,
-    "hash": "498b31941013232fcae1e4d3f5f0f42b"
+  "extraction": {
+    "total_nodes": 942,
+    "total_edges": 1868,
+    "total_hyperedges": 3,
+    "ast_nodes": 0,
+    "semantic_nodes": 942,
+    "input_tokens": 0,
+    "output_tokens": 0
   },
-  "/home/will/projects/freely_fluent/audio_service.py": {
-    "mtime": 1778167254.9475431,
-    "hash": "3f5694d1765da4a7db0222125afc94b1"
+  "graph": {
+    "nodes": 942,
+    "edges": 1625,
+    "communities": 76,
+    "community_labels": {
+      "0": "App Factory & Integration",
+      "1": "Domain Model Concepts",
+      "2": "CardStore Tests (Persistence)",
+      "3": "Flask App Routes",
+      "4": "CantoDict Lookup + Tests",
+      "5": "Wiktionary Audio Lookup",
+      "6": "CardGenerator Tests (Opus)",
+      "7": "Audio Service",
+      "8": "SessionManager (State Logic)",
+      "9": "SessionManager Tests (Persistence)",
+      "10": "SessionManager Tests (CantoDict)",
+      "11": "Card Generator (.apkg)",
+      "12": "POS Toggle Tests",
+      "13": "CardStore Tests (Images)",
+      "14": "CardStore (SQLite)",
+      "15": "Card Templates Tests",
+      "16": "Index Step Tests",
+      "17": "App Session Lifecycle Tests",
+      "18": "SessionManager POS Tests",
+      "19": "CardGenerator Tests (Main)",
+      "20": "Translate Step Tests",
+      "21": "Dockerfile Tests",
+      "22": "Completion Step Tests",
+      "23": "SessionManager (Advance Word)",
+      "24": "Brave Image Search Tests",
+      "25": "Session Isolation Tests",
+      "26": "Pipeline Orchestrator Tests",
+      "27": "CardStore Image Tests",
+      "28": "Audio Step POS Tests",
+      "29": "SessionManager (Accessors)",
+      "30": "Audio Persistence Tests",
+      "31": "README Tests",
+      "32": "Main Entry Tests",
+      "33": "Completion POS Tests",
+      "34": "Opus E2E Tests",
+      "35": "SessionManager HTTP Tests",
+      "36": "Wiktionary Audio (Parsing)",
+      "37": "Wiktionary Audio (HTTP)",
+      "38": "Deployment Config",
+      "39": "Session Skip Tests",
+      "40": "Image Resolve Fail Tests",
+      "41": "Session Init Tests",
+      "42": "Audio Missing Entry Tests",
+      "43": "Image LoadMore Tests",
+      "44": "Audio Missing Images Tests",
+      "45": "Skip Reset Tests",
+      "46": "Step Progression Tests",
+      "47": "Session Complete Tests",
+      "48": "Audio Select Tests",
+      "49": "Full Pipeline Tests",
+      "50": "Audio Missing Audio Tests",
+      "51": "Brave Redirect Tests",
+      "52": "Image Resolve Error Tests",
+      "53": "Recording Default Tests",
+      "54": "Multi-Image Tests",
+      "55": "Audio Backward Compat Tests",
+      "56": "Redirect Malformed Tests",
+      "57": "CardStore Multi-Save Tests",
+      "58": "CardStore GetAll Tests",
+      "59": "Session Rationale 45",
+      "60": "Session Rationale 50",
+      "61": "Session Rationale 57",
+      "62": "Session Rationale 62",
+      "63": "Session Rationale 67",
+      "64": "Session Rationale 72",
+      "65": "Session Rationale 77",
+      "66": "Session Rationale 240",
+      "67": "CardGenerator Rationale 136",
+      "68": "CardGenerator Rationale 141",
+      "69": "CardGenerator Rationale 149",
+      "70": "CardGenerator Rationale 164",
+      "71": "CardGenerator Rationale 174",
+      "72": "CardStore Rationale 273",
+      "73": "Python 3.14 Requirement",
+      "74": "uv Package Manager",
+      "75": "CardGenerator Rationale 174",
+      "76": "CardStore Rationale 273",
+      "77": "Python 3.14 Requirement",
+      "78": "uv Package Manager",
+      "79": "MIT License"
+    },
+    "god_nodes": [
+      {
+        "id": "freely_fluent_card_store_cardstore",
+        "label": "CardStore",
+        "degree": 99
+      },
+      {
+        "id": "freely_fluent_session_manager_sessionmanager",
+        "label": "SessionManager",
+        "degree": 91
+      },
+      {
+        "id": "freely_fluent_card_generator_cardgenerator",
+        "label": "CardGenerator",
+        "degree": 66
+      },
+      {
+        "id": "freely_fluent_cantodict_lookup_cantonesedictionary",
+        "label": "CantoneseDictionary",
+        "degree": 62
+      },
+      {
+        "id": "freely_fluent_card_store_flashcard",
+        "label": "Flashcard",
+        "degree": 62
+      },
+      {
+        "id": "freely_fluent_app_create_app",
+        "label": "create_app()",
+        "degree": 52
+      },
+      {
+        "id": "freely_fluent_wiktionary_audio_wiktionaryaudio",
+        "label": "WiktionaryAudio",
+        "degree": 31
+      },
+      {
+        "id": "freely_fluent_audio_service_audioservice",
+        "label": "AudioService",
+        "degree": 28
+      },
+      {
+        "id": "freely_fluent_pipeline_orchestrator_pipelineorchestrator",
+        "label": "PipelineOrchestrator",
+        "degree": 26
+      },
+      {
+        "id": "freely_fluent_brave_image_search_braveimagesearch",
+        "label": "BraveImageSearch",
+        "degree": 22
+      }
+    ],
+    "surprising_connections": [
+      {
+        "source": "Brave Image Search (Step 3)",
+        "target": "BraveImageSearch",
+        "source_files": [
+          "README.md",
+          "brave_image_search.py"
+        ],
+        "confidence": "INFERRED",
+        "relation": "conceptually_related_to",
+        "why": "inferred connection - not explicitly stated in source; crosses file types (code \u2194 doc); connects across different repos/directories; bridges separate communities; peripheral node `Brave Image Search (Step 3)` unexpectedly reaches hub `BraveImageSearch`"
+      },
+      {
+        "source": "Session (Domain Concept)",
+        "target": "SessionManager",
+        "source_files": [
+          "CONTEXT.md",
+          "session_manager.py"
+        ],
+        "confidence": "INFERRED",
+        "relation": "conceptually_related_to",
+        "why": "inferred connection - not explicitly stated in source; crosses file types (code \u2194 doc); connects across different repos/directories; bridges separate communities; peripheral node `Session (Domain Concept)` unexpectedly reaches hub `SessionManager`"
+      },
+      {
+        "source": "genanki Flashcard Generation",
+        "target": "CardGenerator",
+        "source_files": [
+          "README.md",
+          "card_generator.py"
+        ],
+        "confidence": "INFERRED",
+        "relation": "conceptually_related_to",
+        "why": "inferred connection - not explicitly stated in source; crosses file types (code \u2194 doc); connects across different repos/directories; bridges separate communities; peripheral node `genanki Flashcard Generation` unexpectedly reaches hub `CardGenerator`"
+      },
+      {
+        "source": ".apkg Export Link",
+        "target": "CardGenerator",
+        "source_files": [
+          "templates/completion.html",
+          "card_generator.py"
+        ],
+        "confidence": "INFERRED",
+        "relation": "conceptually_related_to",
+        "why": "inferred connection - not explicitly stated in source; crosses file types (code \u2194 doc); connects across different repos/directories; bridges separate communities; peripheral node `.apkg Export Link` unexpectedly reaches hub `CardGenerator`"
+      },
+      {
+        "source": "card_data Docker Volume",
+        "target": "CardStore",
+        "source_files": [
+          "docker-compose.yml",
+          "card_store.py"
+        ],
+        "confidence": "INFERRED",
+        "relation": "conceptually_related_to",
+        "why": "inferred connection - not explicitly stated in source; crosses file types (code \u2194 doc); connects across different repos/directories; bridges separate communities; peripheral node `card_data Docker Volume` unexpectedly reaches hub `CardStore`"
+      }
+    ]
   },
-  "/home/will/projects/freely_fluent/main.py": {
-    "mtime": 1778157322.1921692,
-    "hash": "bde230b1d23cb11fd05718cfb52a1fdb"
-  },
-  "/home/will/projects/freely_fluent/wiktionary_audio.py": {
-    "mtime": 1778166400.8312085,
-    "hash": "cee7e765b6fed8786eb091fbc1f8f871"
-  },
-  "/home/will/projects/freely_fluent/card_generator.py": {
-    "mtime": 1778159264.1392062,
-    "hash": "d331dc2fd3d522b1c778a5c26077d5d0"
-  },
-  "/home/will/projects/freely_fluent/cantodict_lookup.py": {
-    "mtime": 1778173253.3486347,
-    "hash": "57d6c317f91e7f56da57f2d7310554d0"
-  },
-  "/home/will/projects/freely_fluent/app.py": {
-    "mtime": 1778190582.6793823,
-    "hash": "208cc9ff187719f0672c37f6ccfb7689"
-  },
-  "/home/will/projects/freely_fluent/card_store.py": {
-    "mtime": 1778173348.2607708,
-    "hash": "7ec231436e3b5a084442ca9a6ebe7243"
-  },
-  "/home/will/projects/freely_fluent/tests/test_app_load_more.py": {
-    "mtime": 1778187188.9017937,
-    "hash": "c74b0b77bdf82fd233e1e20e29af86a0"
-  },
-  "/home/will/projects/freely_fluent/tests/test_audio_service.py": {
-    "mtime": 1778167207.0278685,
-    "hash": "8e255df9759dd85b5bcef9ac71062a30"
-  },
-  "/home/will/projects/freely_fluent/tests/test_audio_step.py": {
-    "mtime": 1778189804.1725554,
-    "hash": "bcfe472bf0fbb63ea6f3e717f8d897eb"
-  },
-  "/home/will/projects/freely_fluent/tests/test_card_generator.py": {
-    "mtime": 1778159467.3065288,
-    "hash": "aae7f04f102bb37bb33a74b01f21ff86"
-  },
-  "/home/will/projects/freely_fluent/tests/test_app.py": {
-    "mtime": 1778185563.780988,
-    "hash": "db95a7ee8547ea88c39ad10457cabe46"
-  },
-  "/home/will/projects/freely_fluent/tests/test_wiktionary_audio.py": {
-    "mtime": 1778166179.1888788,
-    "hash": "ca799fa17eb9bedbed43034b200f80e9"
-  },
-  "/home/will/projects/freely_fluent/tests/test_brave_image_search.py": {
-    "mtime": 1778168626.3685493,
-    "hash": "8b9a93bd70aa1030d57692b41eadcf39"
-  },
-  "/home/will/projects/freely_fluent/tests/test_session_manager.py": {
-    "mtime": 1778178853.0097208,
-    "hash": "653f329e3976e3e2d2f01445e07a5edd"
-  },
-  "/home/will/projects/freely_fluent/tests/test_card_store.py": {
-    "mtime": 1778157895.0064,
-    "hash": "a1b6b3e2670e0bd8403fea97be18795b"
-  },
-  "/home/will/projects/freely_fluent/tests/test_cantodict_lookup.py": {
-    "mtime": 1778163196.718805,
-    "hash": "62951dd628a1a62e1184ca8b5a2a6a7c"
-  },
-  "/home/will/projects/freely_fluent/PRD.md": {
-    "mtime": 1778192004.146684,
-    "hash": "e52d54db7c706c44c6331bb8a479d29d"
-  },
-  "/home/will/projects/freely_fluent/README.md": {
-    "mtime": 1778105734.8014452,
-    "hash": "f9eca855d851879c78404c5f12e5d273"
-  },
-  "/home/will/projects/freely_fluent/CONTEXT.md": {
-    "mtime": 1778167633.5620418,
-    "hash": "a36f460abcf6c1aa2c3e5c4496182289"
-  },
-  "/home/will/projects/freely_fluent/tests/fixtures/wiktionary_\u5c71.html": {
-    "mtime": 1778166126.2978,
-    "hash": "4baa8e9ff96ae631dd6215a9eaaea388"
-  },
-  "/home/will/projects/freely_fluent/tests/fixtures/wiktionary_\u5c71_audio.html": {
-    "mtime": 1778188040.9764934,
-    "hash": "3cbe9ddbd785c8fba4f84ee7b21b8935"
-  },
-  "/home/will/projects/freely_fluent/tests/fixtures/wiktionary_\u4f60.html": {
-    "mtime": 1778166027.7906537,
-    "hash": "74802b5c5aa7a780df000ed36b463729"
-  },
-  "/home/will/projects/freely_fluent/templates/image_step.html": {
-    "mtime": 1778185120.967276,
-    "hash": "39749740d1a11dafd2cebfbd48719438"
-  },
-  "/home/will/projects/freely_fluent/templates/audio_step.html": {
-    "mtime": 1778190139.5933638,
-    "hash": "af77452ea8e3ab9f79a986d2485a205b"
-  },
-  "/home/will/projects/freely_fluent/templates/base.html": {
-    "mtime": 1778184616.743423,
-    "hash": "339f32354031eef370c9038fc2cc8d1d"
-  }
+  "outputs": [
+    "graph.html",
+    "graph.json",
+    "GRAPH_REPORT.md",
+    "manifest.json"
+  ],
+  "intermediate": [
+    ".graphify_detect.json",
+    ".graphify_ast.json",
+    ".graphify_semantic.json",
+    ".graphify_extract.json",
+    ".graphify_analysis.json"
+  ]
 }
