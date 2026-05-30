@@ -9,6 +9,10 @@
 {% block content %}
 <h1>Cantonese Pronunciation for {{ characters }}</h1>
 <div id="jyutping-editor" class="jyutping-editor"></div>
+<p class="syllable-toolbar">
+  <button type="button" class="btn-text btn-sm" onclick="addSyllable()">+ Add syllable</button>
+  <button type="button" class="btn-text btn-sm" onclick="undoLastSyllable()" id="undo-syllable-btn">↩ Undo</button>
+</p>
 {% if part_of_speech %}<p class="audio-pos">{{ part_of_speech }}</p>{% endif %}
 {% if audio_url %}
 <div class="audio-player">
@@ -91,6 +95,9 @@ var recordingBase64 = null;
 
 var RAW_JYUTPING = '{{ jyutping|safe }}';
 
+/** Stack of { html: string } for undo of syllable deletion. */
+var deletedSyllables = [];
+
 /** Split a jyutping syllable (e.g. "nei5") into text and tone. */
 function splitSyllable(syl) {
   var m = syl.match(/^(.+?)(\d+)$/);
@@ -116,7 +123,7 @@ function renderJyutpingEditor(raw) {
     } else {
       var syl = splitSyllable(trimmed);
       html += '<span class="jyutping-syllable">';
-      html += '<span class="jyutping-text">' + syl.text + '</span>';
+      html += '<span class="jyutping-text" contenteditable="true" oninput="validateJyutpingInput(this)">' + syl.text + '</span>';
       html += '<select class="tone-select">';
       for (var t = 1; t <= 6; t++) {
         html += '<option value="' + t + '"' + (syl.tone == t ? ' selected' : '') + '>' + t + '</option>';
@@ -133,7 +140,56 @@ function renderJyutpingEditor(raw) {
 function removeSyllable(btn) {
   var syl = btn.closest('.jyutping-syllable');
   if (syl) {
+    // Save for undo: capture the raw HTML of the syllable
+    deletedSyllables.push({ html: syl.outerHTML });
     syl.remove();
+    // Enable undo button if disabled
+    var undoBtn = document.getElementById('undo-syllable-btn');
+    if (undoBtn) undoBtn.disabled = false;
+  }
+}
+
+/** Restore the last deleted syllable before the first remaining syllable or at end. */
+function undoLastSyllable() {
+  if (deletedSyllables.length === 0) return;
+  var entry = deletedSyllables.pop();
+  var firstSyl = document.querySelector('.jyutping-syllable');
+  var p = document.querySelector('#jyutping-editor p');
+  if (!p) return;
+  if (firstSyl) {
+    firstSyl.insertAdjacentHTML('beforebegin', ' ' + entry.html);
+  } else {
+    p.insertAdjacentHTML('beforeend', ' ' + entry.html);
+  }
+  if (deletedSyllables.length === 0) {
+    var undoBtn = document.getElementById('undo-syllable-btn');
+    if (undoBtn) undoBtn.disabled = true;
+  }
+}
+
+/** Append a new empty editable syllable to the jyutping editor. */
+function addSyllable() {
+  var editor = document.getElementById('jyutping-editor');
+  var p = editor.querySelector('p');
+  if (!p) { return; }
+  var html = '<span class="jyutping-syllable">' +
+    '<span class="jyutping-text" contenteditable="true" oninput="validateJyutpingInput(this)"></span>' +
+    '<select class="tone-select">';
+  for (var t = 1; t <= 6; t++) {
+    html += '<option value="' + t + '">' + t + '</option>';
+  }
+  html += '</select>' +
+    '<button type="button" class="syllable-remove" onclick="removeSyllable(this)" title="Delete this syllable">&times;</button>' +
+    '</span>';
+  // Insert space before the new syllable for readability
+  p.insertAdjacentHTML('beforeend', ' ' + html);
+}
+
+/** Strip anything that isn't a letter from jyutping syllable text. */
+function validateJyutpingInput(el) {
+  var cleaned = el.textContent.replace(/[^a-zA-Z]/g, '');
+  if (cleaned !== el.textContent) {
+    el.textContent = cleaned;
   }
 }
 
@@ -143,7 +199,7 @@ function getModifiedJyutping() {
   var parts = [];
   for (var i = 0; i < syllables.length; i++) {
     var syl = syllables[i];
-    var text = syl.querySelector('.jyutping-text').textContent;
+    var text = syl.querySelector('.jyutping-text').textContent.replace(/[^a-zA-Z]/g, '');
     var tone = syl.querySelector('.tone-select').value || '';
     parts.push(text + tone);
   }

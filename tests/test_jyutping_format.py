@@ -1,6 +1,6 @@
 """Tests for Jyutping formatting — numbers to HTML superscript, asterisk handling."""
 
-from jyutping_format import format_jyutping
+from jyutping_format import clean_jyutping, format_jyutping
 
 
 def test_basic_jyutping_numbers_become_superscript():
@@ -31,3 +31,31 @@ def test_multiple_asterisks():
 def test_asterisk_at_end():
     """An asterisk at the end with a trailing number is simply stripped."""
     assert format_jyutping("lou6*2") == "lou<sup>6</sup>"
+
+
+def test_clean_jyutping_removes_non_alpha():
+    """Non-alphabetic characters in syllable text are stripped."""
+    assert clean_jyutping("nei5!! hou2???") == "nei5 hou2"
+
+
+def test_clean_jyutping_preserves_valid():
+    """Valid jyutping passes through unchanged."""
+    assert clean_jyutping("nei5 hou2") == "nei5 hou2"
+
+
+def test_clean_jyutping_empty_string():
+    """Empty input returns empty string."""
+    assert clean_jyutping("") == ""
+
+
+def test_clean_jyutping_only_garbage():
+    """Input with no valid syllable text returns empty."""
+    assert clean_jyutping("!!! ???") == ""
+
+
+def test_clean_jyutping_mixed_with_valid():
+    """Mixed garbled input still preserves valid parts."""
+    assert clean_jyutping("nei5!! hou2") == "nei5 hou2"
+
+
+

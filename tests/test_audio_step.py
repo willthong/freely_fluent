@@ -779,3 +779,251 @@ def test_audio_step_page_has_syllable_delete_buttons():
     assert "onclick" in body.lower() or "removeSyllable" in body
     # RAW_JYUTPING confirms JS-based rendering is in place
     assert "RAW_JYUTPING" in body
+
+
+def test_audio_step_page_has_editable_jyutping_text():
+    """The audio step page renders Jyutping text spans as contenteditable,
+    allowing the user to edit the romanization text (not just tone numbers).
+
+    Feature: User can edit the actual Jyutping romanization (e.g., change
+    "nei" to "neoi") at the same point where they edit tone numbers.
+    """
+    cantodict_path = _make_cantodict_fixture()
+    card_db_path = _make_card_store_fixture()
+
+    wiktionary_client = _make_wiktionary_client_char("你")
+    brave_client = _make_brave_client()
+    audio_download_client = _make_audio_download_client()
+
+    cantodict = CantoneseDictionary(cantodict_path)
+    card_store = CardStore(card_db_path)
+    card_generator = CardGenerator()
+
+    app = create_app(
+        cantodict=cantodict,
+        card_store=card_store,
+        card_generator=card_generator,
+        wiktionary_client=wiktionary_client,
+        brave_client=brave_client,
+        audio_download_client=audio_download_client,
+        api_key="test-key",
+    )
+    client = TestClient(app, raise_server_exceptions=False)
+
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+
+    client.get(f"/sessions/{session_id}/translate")
+    client.post(f"/sessions/{session_id}/entries", json={"chinese": "你好"})
+    client.post(f"/sessions/{session_id}/images", json={"result_index": 0})
+
+    r = client.get(f"/audio/{session_id}")
+    assert r.status_code == 200
+    body = r.text
+
+    # Each Jyutping syllable text span should be contenteditable
+    assert 'class="jyutping-text" contenteditable="true"' in body
+
+
+def test_audio_step_page_has_add_syllable_button():
+    """The audio step page has an "Add syllable" button that lets the
+    user insert a new Jyutping syllable into the editor.
+
+    Feature: User can add a new syllable (e.g., adding a missing
+    syllable that CantoDict didn't include).
+    """
+    cantodict_path = _make_cantodict_fixture()
+    card_db_path = _make_card_store_fixture()
+
+    wiktionary_client = _make_wiktionary_client_char("你")
+    brave_client = _make_brave_client()
+    audio_download_client = _make_audio_download_client()
+
+    cantodict = CantoneseDictionary(cantodict_path)
+    card_store = CardStore(card_db_path)
+    card_generator = CardGenerator()
+
+    app = create_app(
+        cantodict=cantodict,
+        card_store=card_store,
+        card_generator=card_generator,
+        wiktionary_client=wiktionary_client,
+        brave_client=brave_client,
+        audio_download_client=audio_download_client,
+        api_key="test-key",
+    )
+    client = TestClient(app, raise_server_exceptions=False)
+
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+
+    client.get(f"/sessions/{session_id}/translate")
+    client.post(f"/sessions/{session_id}/entries", json={"chinese": "你好"})
+    client.post(f"/sessions/{session_id}/images", json={"result_index": 0})
+
+    r = client.get(f"/audio/{session_id}")
+    assert r.status_code == 200
+    body = r.text
+
+    # An "Add syllable" button should be present in the page
+    assert 'add-syllable' in body.lower() or 'Add syllable' in body
+    # It should have an onclick handler
+    assert 'addSyllable' in body
+
+
+def test_audio_step_page_has_undo_button():
+    """The audio step page has an "Undo" button that can restore
+    a previously deleted syllable.
+
+    Feature: User can undo a syllable deletion.
+    """
+    cantodict_path = _make_cantodict_fixture()
+    card_db_path = _make_card_store_fixture()
+
+    wiktionary_client = _make_wiktionary_client_char("你")
+    brave_client = _make_brave_client()
+    audio_download_client = _make_audio_download_client()
+
+    cantodict = CantoneseDictionary(cantodict_path)
+    card_store = CardStore(card_db_path)
+    card_generator = CardGenerator()
+
+    app = create_app(
+        cantodict=cantodict,
+        card_store=card_store,
+        card_generator=card_generator,
+        wiktionary_client=wiktionary_client,
+        brave_client=brave_client,
+        audio_download_client=audio_download_client,
+        api_key="test-key",
+    )
+    client = TestClient(app, raise_server_exceptions=False)
+
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+
+    client.get(f"/sessions/{session_id}/translate")
+    client.post(f"/sessions/{session_id}/entries", json={"chinese": "你好"})
+    client.post(f"/sessions/{session_id}/images", json={"result_index": 0})
+
+    r = client.get(f"/audio/{session_id}")
+    assert r.status_code == 200
+    body = r.text
+
+    # An "Undo" button should be present in the page
+    assert 'undo' in body.lower()
+    # It should have an onclick handler
+    assert 'undoLastSyllable' in body
+
+
+def test_audio_step_confirm_with_modified_romanization():
+    """Confirming audio with a modified jyutping romanization (changing
+    the syllable text, not just the tone) saves the card with the edited
+    romanization.
+
+    Feature: User can edit the actual Jyutping romanization text
+    (e.g., change "nei" to "neoi") before confirming.
+    """
+    cantodict_path = _make_cantodict_fixture()
+    card_db_path = _make_card_store_fixture()
+
+    wiktionary_client = _make_wiktionary_client_char("你")
+    brave_client = _make_brave_client()
+    audio_download_client = _make_audio_download_client()
+
+    cantodict = CantoneseDictionary(cantodict_path)
+    card_store = CardStore(card_db_path)
+    card_generator = CardGenerator()
+
+    app = create_app(
+        cantodict=cantodict,
+        card_store=card_store,
+        card_generator=card_generator,
+        wiktionary_client=wiktionary_client,
+        brave_client=brave_client,
+        audio_download_client=audio_download_client,
+        api_key="test-key",
+    )
+    client = TestClient(app, raise_server_exceptions=False)
+
+    # 1. Pipeline: start session → translate → entry → image → audio
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+
+    client.get(f"/sessions/{session_id}/translate")
+    client.post(f"/sessions/{session_id}/entries", json={"chinese": "你好"})
+    client.post(f"/sessions/{session_id}/images", json={"result_index": 0})
+
+    # 2. Confirm with a modified romanization (nei5 hou2 → neoi5 ho3)
+    r = client.post(
+        f"/audio/{session_id}",
+        json={"source": "wiktionary", "jyutping": "neoi5 ho3"},
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["completed"] is True
+
+    # 3. Verify flashcard saved with MODIFIED romanization
+    flashcards = card_store.get_all()
+    assert len(flashcards) == 1
+    card = flashcards[0]
+    assert card.jyutping == "neoi5 ho3"  # modified romanization + tone
+    assert card.english_word == "hello"
+    assert card.chinese_characters == "你好"
+
+
+def test_audio_step_confirm_strips_non_alpha_from_jyutping():
+    """Confirming audio with non-alphabetic characters in the jyutping
+    syllable text strips them before saving (only a-zA-Z preserved in
+    the romanization part, tone numbers stay intact).
+
+    Validation: User can only type alphabetical characters in the
+    romanization text; non-alpha chars are stripped.
+    """
+    cantodict_path = _make_cantodict_fixture()
+    card_db_path = _make_card_store_fixture()
+
+    wiktionary_client = _make_wiktionary_client_char("你")
+    brave_client = _make_brave_client()
+    audio_download_client = _make_audio_download_client()
+
+    cantodict = CantoneseDictionary(cantodict_path)
+    card_store = CardStore(card_db_path)
+    card_generator = CardGenerator()
+
+    app = create_app(
+        cantodict=cantodict,
+        card_store=card_store,
+        card_generator=card_generator,
+        wiktionary_client=wiktionary_client,
+        brave_client=brave_client,
+        audio_download_client=audio_download_client,
+        api_key="test-key",
+    )
+    client = TestClient(app, raise_server_exceptions=False)
+
+    # 1. Pipeline: start session → translate → entry → image → audio
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+
+    client.get(f"/sessions/{session_id}/translate")
+    client.post(f"/sessions/{session_id}/entries", json={"chinese": "你好"})
+    client.post(f"/sessions/{session_id}/images", json={"result_index": 0})
+
+    # 2. Confirm with non-alpha chars in syllable text
+    r = client.post(
+        f"/audio/{session_id}",
+        json={"source": "wiktionary", "jyutping": "nei5!! hou2???"},
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["completed"] is True
+
+    # 3. Verify flashcard saved with STRIPPED jyutping
+    flashcards = card_store.get_all()
+    assert len(flashcards) == 1
+    card = flashcards[0]
+    # Non-alpha chars removed from syllable text, tone numbers preserved
+    assert card.jyutping == "nei5 hou2"
+    assert card.english_word == "hello"
+    assert card.chinese_characters == "你好"

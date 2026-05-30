@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 
 import httpx
 
+from jyutping_format import clean_jyutping
+
 if TYPE_CHECKING:
     from card_store import CardStoreProtocol, Flashcard
 
@@ -143,7 +145,7 @@ class SessionManager:
         """
         self._selected_audio = audio
         if jyutping is not None and self._selected_entry is not None:
-            self._selected_entry["jyutping"] = jyutping
+            self._selected_entry["jyutping"] = clean_jyutping(jyutping)
         card_data = self._build_card_data()
         if card_data is None:
             return None
