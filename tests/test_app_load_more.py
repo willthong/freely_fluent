@@ -347,6 +347,101 @@ def _make_re_search_app():
     return TestClient(app)
 
 
+def _make_many_results_brave_client():
+    """Brave client returning 20 results for all queries (to test pagination)."""
+    def handler(request):
+        results = []
+        for i in range(20):
+            results.append({
+                "type": "image_result",
+                "url": f"https://ex.com/page{i}",
+                "thumbnail": {"src": f"https://ex.com/thumb_{i}.jpg", "width": 480, "height": 360},
+                "properties": {"url": f"https://ex.com/orig_{i}.jpg"},
+            })
+        return Response(200, json={"results": results})
+    return Client(transport=MockTransport(handler))
+
+
+def _make_re_search_many_app():
+    """Create an app with a Brave client returning 20 results."""
+    from card_generator import CardGenerator
+    cantodict_path = _make_cantodict_fixture()
+    card_db_path = _make_card_store_fixture()
+    cantodict = CantoneseDictionary(cantodict_path)
+    card_store = CardStore(card_db_path)
+    card_generator = CardGenerator()
+    brave_client = _make_many_results_brave_client()
+    app = create_app(
+        cantodict=cantodict,
+        card_store=card_store,
+        card_generator=card_generator,
+        brave_client=brave_client,
+        api_key="test-key",
+    )
+    return TestClient(app)
+
+
+def test_re_search_load_more_returns_next_batch():
+    """After re-searching with >12 results, the first batch shows 12
+    and load-more returns the remaining results from the cache.
+    """
+    client = _make_re_search_many_app()
+
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+
+    client.get(f"/sessions/{session_id}/translate")
+    client.post(f"/sessions/{session_id}/entries", json={"chinese": "\u4f60\u597d"})
+
+    # Initial image page
+    r = client.get(f"/image/{session_id}")
+    assert r.status_code == 200
+
+    # Re-search with custom query
+    r = client.get(f"/image/{session_id}/research", params={"query": "custom test"})
+    assert r.status_code == 200
+    # Should show first 12 images
+    assert "https://ex.com/thumb_0.jpg" in r.text
+    assert "https://ex.com/thumb_11.jpg" in r.text
+    assert "https://ex.com/thumb_12.jpg" not in r.text
+
+    # Load more should return the next 8 images
+    r = client.get(f"/image/{session_id}/load-more")
+    assert r.status_code == 200
+    assert "https://ex.com/thumb_12.jpg" in r.text
+    assert "https://ex.com/thumb_19.jpg" in r.text
+
+
+def test_re_search_empty_query_falls_back_to_characters():
+    """An empty/whitespace re-search query falls back to the
+    session's selected characters (character-based search).
+    """
+    # Use a re-search Brave client that returns different results
+    # for character-based vs custom queries
+    client = _make_re_search_app()
+
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+
+    client.get(f"/sessions/{session_id}/translate")
+    client.post(f"/sessions/{session_id}/entries", json={"chinese": "\u4f60\u597d"})
+
+    # Initial image page (character-based)
+    r = client.get(f"/image/{session_id}")
+    assert r.status_code == 200
+    assert "https://ex.com/thumb_default1.jpg" in r.text
+
+    # Re-search with empty query — should fall back to characters
+    r = client.get(f"/image/{session_id}/research", params={"query": ""})
+    assert r.status_code == 200
+    assert "https://ex.com/thumb_default1.jpg" in r.text
+
+    # Re-search with whitespace-only query — should also fall back
+    r = client.get(f"/image/{session_id}/research", params={"query": "   "})
+    assert r.status_code == 200
+    assert "https://ex.com/thumb_default1.jpg" in r.text
+
+
 def test_image_re_search_returns_different_results():
     """GET /image/{id}/research?query=... returns new images
     based on the supplied query, not the original character-based query.
@@ -379,13 +474,13 @@ def test_image_re_search_returns_404_for_unknown_session():
     assert r.status_code == 404
 
 
-def test_image_re_search_returns_400_for_no_entry():
-    """Re-search returns 400 when no entry has been selected."""
+def test_image_re_search_redirects_when_no_entry():
+    """Re-search redirects to translate when no entry has been selected."""
     client = _make_re_search_app()
     r = client.post("/sessions", json={"words": ["hello"]})
     session_id = r.json()["session_id"]
 
     # No entry selected yet
-    r = client.get(f"/image/{session_id}/research", params={"query": "test"})
-    assert r.status_code == 200
-    assert r.json().get("error") is not None
+    r = client.get(f"/image/{session_id}/research", params={"query": "test"}, follow_redirects=False)
+    assert r.status_code == 303
+    assert "/translate/" in r.headers.get("location", "")

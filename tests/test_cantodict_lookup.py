@@ -149,7 +149,7 @@ def test_lookup_includes_part_of_speech_in_entries():
 
 
 def test_lookup_propagates_extracted_pos():
-    """lookup() correctly extracts POS from the definition of each entry."""
+    """lookup() extracts POS into _cantodict_pos; part_of_speech starts blank."""
     db_path = _make_fixture_db_pos()
     dic = CantoneseDictionary(db_path)
 
@@ -157,11 +157,13 @@ def test_lookup_propagates_extracted_pos():
 
     # Entry with "n." prefix
     noun_entry = next(e for e in entries if e["chinese"] == "你好")
-    assert noun_entry["part_of_speech"] == "n"
+    assert noun_entry["_cantodict_pos"] == "n"
+    assert noun_entry["part_of_speech"] == ""
 
     # Entry with "v." prefix
     verb_entry = next(e for e in entries if e["chinese"] == "喂")
-    assert verb_entry["part_of_speech"] == "v"
+    assert verb_entry["_cantodict_pos"] == "v"
+    assert verb_entry["part_of_speech"] == ""
 
 
 def test_lookup_matches_subword():

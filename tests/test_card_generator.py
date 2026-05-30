@@ -306,6 +306,46 @@ def test_part_of_speech_empty_when_not_set():
         conn.close()
 
 
+def test_deck_name_is_cantonese():
+    """The generated .apkg contains a deck named 'Cantonese'.
+
+    Story: When the user exports cards to AnkiDroid, the deck name
+    must be 'Cantonese' so imports land in the correct deck.
+    """
+    import zipfile
+    import sqlite3
+    import json
+
+    from card_generator import CardGenerator, _DECK_ID
+    from card_store import Flashcard
+
+    generator = CardGenerator()
+    flashcard = Flashcard(
+        english_word="hello",
+        chinese_characters="\u4f60\u597d",
+        jyutping="nei5hou2",
+        image_data=[b"\x89PNG"],
+        audio_data=b"OggS",
+    )
+
+    with tempfile.NamedTemporaryFile(suffix=".apkg", delete=False) as tmp:
+        path = tmp.name
+
+    generator.generate_apkg([flashcard], path)
+
+    with zipfile.ZipFile(path, "r") as z:
+        tmp_dir = tempfile.mkdtemp()
+        db_path = z.extract("collection.anki2", tmp_dir)
+        conn = sqlite3.connect(db_path)
+
+        decks_json = conn.execute("SELECT decks FROM col").fetchone()[0]
+        decks = json.loads(decks_json)
+        deck = decks[str(_DECK_ID)]
+        assert deck["name"] == "Cantonese", f"Expected deck name 'Cantonese', got '{deck['name']}'"
+
+        conn.close()
+
+
 def test_card_uses_custom_model_not_basic_reversed():
     """The .apkg should use the custom FreelyFluentCard model with 4 fields,
     not genanki's BASIC_AND_REVERSED_CARD_MODEL which has 2 fields."""

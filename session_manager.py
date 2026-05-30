@@ -41,7 +41,6 @@ class SessionManager:
         self._image_offset = 0
         self._image_results: list[dict[str, Any]] = []
         self._session_id: str = ""
-        self._include_pos: bool = True
 
     @property
     def is_complete(self) -> bool:
@@ -86,9 +85,40 @@ class SessionManager:
         return self._selected_audio
 
     def select_entry(self, entry: dict[str, Any]) -> None:
-        """Record the chosen Entry and advance to the image step."""
+        """Record the chosen Entry without advancing the pipeline step.
+
+        The user stays on the translate step so they can manually set POS
+        before continuing.  Call ``advance_to_image()`` when the form is
+        submitted to move to the image step.
+        """
         self._selected_entry = entry
         self._selected_characters = entry["chinese"]
+
+    def set_entry_pos(self, pos: str) -> None:
+        """Set the part-of-speech for the currently selected entry.
+
+        If no entry has been selected yet this is a no-op.
+        """
+        if self._selected_entry is not None:
+            self._selected_entry["part_of_speech"] = pos
+
+    @property
+    def entry_pos_suggestion(self) -> str:
+        """The POS suggestion from CantoDict for the selected entry.
+
+        Returns an empty string if no entry is selected or if CantoDict
+        did not detect a POS.
+        """
+        if self._selected_entry is None:
+            return ""
+        return self._selected_entry.get("_cantodict_pos", "")
+
+    def advance_to_image(self) -> None:
+        """Advance the pipeline from translate to image step."""
+        if self._step_index != 0:
+            raise RuntimeError(
+                f"advance_to_image called on step {self.current_step}, expected translate"
+            )
         self._step_index = 1
 
     def add_image(self, image: dict[str, Any]) -> None:
@@ -139,10 +169,6 @@ class SessionManager:
     def get_recording(self) -> bytes | None:
         """Retrieve the saved browser recording, or None."""
         return self._recording
-
-    def set_include_pos(self, value: bool) -> None:
-        """Set whether part-of-speech hints should appear on cards."""
-        self._include_pos = value
 
     def go_back(self) -> str:
         """Go back one pipeline step, clearing current step's selections.
@@ -282,8 +308,6 @@ class SessionManager:
         if audio is None:
             return None
         pos = self._selected_entry.get("part_of_speech", "")
-        if not self._include_pos:
-            pos = ""
         return {
             "english_word": self.current_word,
             "chinese_characters": self._selected_entry["chinese"],

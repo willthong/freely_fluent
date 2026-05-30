@@ -16,7 +16,7 @@ import genanki
 from card_store import Flashcard
 from jyutping_format import format_jyutping
 
-_DECK_ID = int.from_bytes(hashlib.sha1(b"cantonese_words").digest()[:4], "little")
+_DECK_ID = int.from_bytes(hashlib.sha1(b"Cantonese").digest()[:4], "little")
 
 _NOTE_TYPE_ID = int.from_bytes(hashlib.sha1(b"freely_fluent_card").digest()[:4], "little")
 
@@ -67,7 +67,7 @@ class CardGenerator:
     def generate_apkg(
         self, flashcards: list[Flashcard], output_path: str
     ) -> int:
-        deck = genanki.Deck(_DECK_ID, "cantonese_words")
+        deck = genanki.Deck(_DECK_ID, "Cantonese")
 
         media_dir = tempfile.mkdtemp()
         media_files: list[str] = []

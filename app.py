@@ -57,10 +57,6 @@ class ImageSelectRequest(BaseModel):
     result_index: int
 
 
-class PosToggleRequest(BaseModel):
-    include_pos: bool
-
-
 def create_app(
     cantodict: CantoneseDictionary | None = None,
     card_store: CardStore | None = None,
@@ -249,17 +245,7 @@ def create_app(
             "selected_entry": session.selected_entry,
             "selected_images": session.selected_images,
             "image_offset": session.image_offset,
-            "include_pos": session._include_pos,
         }
-
-    @app.post("/sessions/{session_id}/pos-toggle")
-    def toggle_pos(session_id: str, req: PosToggleRequest):
-        """Toggle whether part-of-speech hints appear on cards."""
-        session = _sessions.get(session_id)
-        if session is None:
-            return Response(status_code=404)
-        session.set_include_pos(req.include_pos)
-        return {"include_pos": session._include_pos}
 
     @app.delete("/sessions/{session_id}")
     def delete_session(session_id: str):
@@ -296,7 +282,6 @@ def create_app(
                 "session_id": session_id,
                 "english_word": session.current_word,
                 "entries": first_batch,
-                "include_pos": session._include_pos,
                 "current_step": session.current_step,
                 "words": session.words,
                 "word_index": session._word_index,
@@ -305,17 +290,70 @@ def create_app(
             },
         )
 
-    @app.post("/translate/{session_id}/select")
-    def select_translation(session_id: str, chinese: str = Form(default="")):
-        """Select a translation entry and redirect to image step."""
+    @app.post("/sessions/{session_id}/select-entry")
+    def select_entry_htmx(request: Request, session_id: str, chinese: str = Form(default="")):
+        """HTMX: store the selected entry without advancing the step.
+
+        Returns an HTML snippet containing the POS dropdown row with a
+        suggestion label derived from CantoDict.  The dropdown is enabled
+        but no value is selected.
+        """
         session = _sessions.get(session_id)
         if session is None:
+            return Response(status_code=303, headers={"Location": "/"})
+        if session.current_word is None:
             return Response(status_code=404)
+        if session.current_step != "translate":
+            return Response(status_code=400)
         entries = _get_orchestrator().lookup_translations(session, session.current_word)
+        session.store_translate_results(entries)
         entry = next((e for e in entries if e.get("chinese") == chinese), None)
         if entry is None:
             return Response(status_code=404)
         session.select_entry(entry)
+        suggestion = session.entry_pos_suggestion
+        return templates.TemplateResponse(
+            request,
+            "_pos_dropdown.html",
+            {
+                "session_id": session_id,
+                "suggestion": suggestion,
+                "selected_entry": session.selected_entry,
+            },
+        )
+
+    @app.post("/sessions/{session_id}/pos")
+    def set_pos(session_id: str, pos: str = Form(default="")):
+        """HTMX: store the manually-selected POS value on the current entry.
+
+        Returns a checkmark (✓) confirmation snippet.
+        """
+        session = _sessions.get(session_id)
+        if session is None:
+            return Response(status_code=303, headers={"Location": "/"})
+        session.set_entry_pos(pos.strip())
+        if pos.strip():
+            return HTMLResponse(
+                '<span class="pos-confirmed" id="pos-confirmation">&#10003;</span>'
+            )
+        else:
+            return HTMLResponse(
+                '<span class="pos-cleared" id="pos-confirmation"></span>'
+            )
+
+    @app.post("/translate/{session_id}/select")
+    def select_translation(session_id: str, chinese: str = Form(default="")):
+        """Advance from translate to image step after entry + POS selection."""
+        session = _sessions.get(session_id)
+        if session is None:
+            return Response(status_code=404)
+        if session.current_step != "translate":
+            return Response(status_code=400)
+        if session.selected_entry is None:
+            return Response(status_code=400)
+        if session.selected_characters != chinese:
+            return Response(status_code=400)
+        session.advance_to_image()
         return Response(status_code=303, headers={"Location": f"/image/{session_id}"})
 
     # ── Translate load-more (HTMX) ──
@@ -342,7 +380,6 @@ def create_app(
             {
                 "entries": results,
                 "session_id": session_id,
-                "include_pos": session._include_pos,
             },
         )
 
@@ -379,6 +416,7 @@ def create_app(
         if entry is None:
             return Response(status_code=404)
         session.select_entry(entry)
+        session.advance_to_image()
         return {"current_step": session.current_step, "current_word": session.current_word}
 
     # ── Images (programmatic) ──
@@ -580,16 +618,20 @@ def create_app(
             return Response(status_code=404)
         characters = session.selected_characters
         if not characters:
-            return {"error": "no entry selected"}
+            return Response(status_code=303, headers={"Location": f"/translate/{session_id}"})
         if session.current_step != "image":
-            return Response(status_code=400)
-        results = _get_orchestrator().search_images_with_query(session, query)
-        session.load_more_images(len(results))  # mark all as shown
+            return Response(status_code=303, headers={"Location": f"/translate/{session_id}"})
+        # Fall back to character-based search if query is empty/whitespace
+        search_query = query.strip() if query.strip() else characters
+        results = _get_orchestrator().search_images_with_query(session, search_query)
+        session._image_offset = 0  # reset cursor for fresh result set
+        first_batch = results[:12]
+        session.load_more_images(12)  # advance past first batch
         return templates.TemplateResponse(
             request,
             "_image_cards.html",
             {
-                "results": results,
+                "results": first_batch,
                 "image_offset": 0,
             },
         )
@@ -603,9 +645,9 @@ def create_app(
             return Response(status_code=404)
         characters = session.selected_characters
         if not characters:
-            return Response(status_code=400)
+            return Response(status_code=303, headers={"Location": f"/translate/{session_id}"})
         if session.current_step != "image":
-            return Response(status_code=400)
+            return Response(status_code=303, headers={"Location": f"/translate/{session_id}"})
         results = _get_orchestrator().search_images(session)
         session.store_image_results(results)
         # Show first 12; rest are available via client-side pagination

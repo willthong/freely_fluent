@@ -1,19 +1,19 @@
 /* ── AnkiDroid-inspired Dark Mode CSS Custom Properties ── */
 
 :root {
-    --bg: #1a1a2e;
-    --surface: #16213e;
-    --border: #3a4a6b;
-    --text: #a0aec0;
-    --text-bright: #e2e8f0;
-    --text-highlight: #f7fafc;
-    --accent: #4fc3f7;
-    --accent-hover: #29b6f6;
-    --success: #66bb6a;
-    --warning: #ffa726;
-    --danger: #ef5350;
-    --cyan: #26c6da;
-    --magenta: #ab47bc;
+    --bg: #121212;
+    --surface: #1e1e1e;
+    --border: rgba(255,255,255,0.12);
+    --text: rgba(255,255,255,0.60);
+    --text-bright: rgba(255,255,255,0.87);
+    --text-highlight: rgba(255,255,255,0.95);
+    --accent: #03dac6;
+    --accent-hover: #00e5d6;
+    --success: #4caf50;
+    --warning: #ffab40;
+    --danger: #cf6679;
+    --cyan: #4dd0e1;
+    --magenta: #ce93d8;
 }
 
 /* ── Reset & Base ── */
@@ -71,7 +71,7 @@ body {
 }
 
 .step.done {
-    color: var(--success);
+    color: inherit;
 
 /* ── Word List Bar ── */
 
@@ -119,14 +119,14 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.1rem;
-    height: 1.1rem;
+    width: 1.4rem;
+    height: 1.4rem;
     padding: 0;
     border: none;
     border-radius: 50%;
     background: transparent;
     color: var(--danger);
-    font-size: 0.85rem;
+    font-size: 1rem;
     line-height: 1;
     cursor: pointer;
     transition: background 0.15s;
@@ -184,6 +184,39 @@ body {
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
+/* ── Re-search input on Image Step ── */
+
+.search-input {
+    background: var(--surface);
+    color: var(--text-bright);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.6rem 0.75rem;
+    font-family: inherit;
+    font-size: 1rem;
+    line-height: 1.5;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.search-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.re-search-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+}
+
+.re-search-row label {
+    color: var(--text);
+    font-size: 0.9rem;
+    white-space: nowrap;
+}
+
 .btn-primary {
     display: inline-block;
     background: var(--accent);
@@ -200,6 +233,26 @@ body {
 
 .btn-primary:hover {
     background: var(--accent-hover);
+}
+
+.btn-outline {
+    display: inline-block;
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    padding: 0.6rem 1.5rem;
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.2s, color 0.2s;
+}
+
+.btn-outline:hover {
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
+    color: var(--accent-hover);
 }
 
 .error-box {
@@ -260,33 +313,97 @@ body {
     text-align: right;
 }
 
-.skip-link {
-    color: var(--danger);
-    text-decoration: none;
-    font-size: 0.9rem;
-}
-
-.skip-link:hover {
-    text-decoration: underline;
-}
-
 .btn-skip {
+    display: inline-block;
     background: transparent;
-    color: var(--danger);
-    border: 1px solid var(--danger);
-    padding: 0.5rem 1rem;
+    color: var(--text);
+    border: 1px solid var(--border);
     border-radius: 6px;
+    padding: 0.6rem 1.5rem;
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 600;
     cursor: pointer;
-    font-size: 0.9rem;
+    transition: border-color 0.2s, color 0.2s;
 }
 
 .btn-skip:hover {
-    background: var(--danger);
-    color: var(--bg);
+    border-color: var(--text-bright);
+    color: var(--text-bright);
 }
 
-.pos-checkbox {
-    accent-color: var(--accent);
+.pos-placeholder {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-style: italic;
+    margin: 0.75rem 0;
+}
+
+.pos-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin: 0.75rem 0;
+}
+
+.pos-label {
+    font-weight: 600;
+    color: var(--text-bright);
+}
+
+#pos-dropdown {
+    padding: 0.35rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.9rem;
+}
+
+#pos-dropdown:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.pos-suggestion {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-style: italic;
+}
+
+.pos-confirmed {
+    color: #22c55e;
+    font-size: 1.1rem;
+    font-weight: bold;
+    animation: pos-fade 2s forwards;
+}
+
+@keyframes pos-fade {
+    0%   { opacity: 1; }
+    70%  { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+.pos-cleared {
+    display: none;
+}
+
+.pos-custom-input {
+    padding: 0.35rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.9rem;
+    max-width: 160px;
+}
+
+.pos-custom-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
 /* ── Image Step ── */
@@ -531,6 +648,31 @@ body {
     border-bottom-color: var(--accent);
 }
 
+/* ── Tone Select Dropdown Dark Mode ── */
+
+.tone-select {
+    background: var(--surface);
+    color: var(--text-bright);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.1rem 0.2rem;
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    outline: none;
+}
+
+.tone-select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+}
+
+.tone-select option {
+    background: var(--surface);
+    color: var(--text-bright);
+}
+
 /* ── Syllable Delete Button ── */
 
 .syllable-remove {
@@ -647,13 +789,22 @@ body {
     margin-top: 1.5rem;
 }
 
-.text-link {
+.btn-link {
+    display: inline-block;
+    background: none;
     color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.6rem 1.5rem;
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
     text-decoration: none;
-    font-size: 0.95rem;
+    transition: border-color 0.2s, color 0.2s;
 }
 
-.text-link:hover {
+.btn-link:hover {
+    border-color: var(--text-bright);
     color: var(--text-bright);
-    text-decoration: underline;
 }

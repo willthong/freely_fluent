@@ -402,6 +402,44 @@ def test_translate_continue_button_is_primary():
     assert 'Continue to Images' in r.text
 
 
+def test_translate_load_more_uses_outline_class():
+    """The 'Load more translations' button uses 'btn-outline' class.
+
+    Story F4: Load more action as outlined accent button.
+    """
+    # Create a fixture with 12 entries that match a search for "test"
+    entries = [(f"\u5b57{i}", f"zi6{i}", f"test word definition {i}") for i in range(12)]
+    cantodict_path = _make_cantodict_fixture(entries)
+    card_db_path = _make_card_store_fixture()
+    from card_store import CardStore
+    from cantodict_lookup import CantoneseDictionary
+    from card_generator import CardGenerator
+    cantodict = CantoneseDictionary(cantodict_path)
+    card_store = CardStore(card_db_path)
+    card_generator = CardGenerator()
+    wiktionary_client = _make_wiktionary_client()
+    brave_client = _make_brave_client()
+    audio_download_client = _make_audio_download_client()
+    app_inner = create_app(
+        cantodict=cantodict,
+        card_store=card_store,
+        card_generator=card_generator,
+        wiktionary_client=wiktionary_client,
+        brave_client=brave_client,
+        audio_download_client=audio_download_client,
+        api_key="test-key",
+    )
+    client = TestClient(app_inner, raise_server_exceptions=False)
+
+    r = client.post("/sessions", json={"words": ["test"]})
+    session_id = r.json()["session_id"]
+
+    r = client.get(f"/translate/{session_id}")
+    assert r.status_code == 200
+    assert 'class="btn-outline"' in r.text
+    assert 'Load more translations' in r.text
+
+
 def test_translate_skip_link_has_class():
     """The 'Skip this word' action on the translate page is now a button
     using the 'btn-skip' class for danger-colour styling.
@@ -418,11 +456,10 @@ def test_translate_skip_link_has_class():
     assert 'Skip this word' in r.text
 
 
-def test_translate_pos_checkbox_has_class():
-    """The 'Show part-of-speech hints' checkbox must use the
-    'pos-checkbox' class for styled checkbox accent.
+def test_translate_pos_dropdown_has_placeholder():
+    """The translate step renders a POS dropdown area placeholder div.
 
-    Story F4: POS toggle is styled cleanly with accent colour.
+    Story F4: POS dropdown replaces the old global toggle.
     """
     client = _make_app()
     r = client.post("/sessions", json={"words": ["hello"]})
@@ -430,7 +467,7 @@ def test_translate_pos_checkbox_has_class():
 
     r = client.get(f"/translate/{session_id}")
     assert r.status_code == 200
-    assert 'class="pos-checkbox"' in r.text
+    assert 'id="pos-dropdown-area"' in r.text
 
 
 # ── Story F5: Image Step Redesign ──
@@ -523,6 +560,84 @@ def test_image_continue_button_is_primary():
     assert 'Continue to Audio' in r.text
 
 
+def test_image_search_input_uses_search_input_class():
+    """The re-search input on the image step uses 'search-input' class
+    matching Material Design dark theme styling.
+    """
+    client = _make_app()
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+    _advance_to_image_step(client, session_id)
+
+    r = client.get(f"/image/{session_id}")
+    assert r.status_code == 200
+    assert 'class="search-input"' in r.text
+    assert 'class="re-search-input"' not in r.text
+
+
+def test_image_search_button_uses_outline_class():
+    """The re-search button on the image step uses 'btn-outline' class
+    matching other secondary actions.
+    """
+    client = _make_app()
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+    _advance_to_image_step(client, session_id)
+
+    r = client.get(f"/image/{session_id}")
+    assert r.status_code == 200
+    assert 'class="btn-outline"' in r.text
+    # Should NOT use btn-search
+    assert 'btn-search' not in r.text
+
+
+def test_image_search_has_label():
+    """The re-search row has a descriptive label."""
+    client = _make_app()
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+    _advance_to_image_step(client, session_id)
+
+    r = client.get(f"/image/{session_id}")
+    assert r.status_code == 200
+    assert 'Search custom images' in r.text
+
+
+def test_image_step_redirects_when_no_entry():
+    """Accessing the image step without a selected translation
+    redirects to the translate step.
+    """
+    client = _make_app()
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+
+    # Access image step directly without selecting a translation
+    r = client.get(f"/image/{session_id}", follow_redirects=False)
+    assert r.status_code == 303
+    assert "/translate/" in r.headers.get("location", "")
+
+
+def test_image_re_search_redirects_when_no_entry():
+    """Re-searching without a selected translation redirects to translate."""
+    client = _make_app()
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+
+    # Access re-search directly without selecting a translation
+    r = client.get(f"/image/{session_id}/research", params={"query": "test"}, follow_redirects=False)
+    assert r.status_code == 303
+    assert "/translate/" in r.headers.get("location", "")
+    """The re-search row has a descriptive label."""
+    client = _make_app()
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+    _advance_to_image_step(client, session_id)
+
+    r = client.get(f"/image/{session_id}")
+    assert r.status_code == 200
+    assert 'Search custom images' in r.text
+
+
 def test_image_skip_link_has_class():
     """The 'Skip this word' action on the image page is now a button
     using the 'btn-skip' class for danger-colour styling.
@@ -598,9 +713,12 @@ def test_audio_pos_has_class():
 
     r = client.post("/sessions", json={"words": ["good"]})
     session_id = r.json()["session_id"]
-    # Advance manually since chinese differs from default fixture
+    # Select entry and set POS manually before advancing
     client.get(f"/sessions/{session_id}/translate")
-    client.post(f"/sessions/{session_id}/entries", json={"chinese": "好"})
+    client.post(f"/sessions/{session_id}/select-entry", data={"chinese": "好"})
+    client.post(f"/sessions/{session_id}/pos", data={"pos": "adj"})
+    # Advance to image
+    client.post(f"/translate/{session_id}/select", data={"chinese": "好"})
     client.post(f"/sessions/{session_id}/images", json={"result_index": 0})
 
     r = client.get(f"/audio/{session_id}")
@@ -807,5 +925,5 @@ def test_completion_start_new_session_uses_text_link():
 
     r = client.get(f"/complete/{session_id}")
     assert r.status_code == 200
-    assert 'class="text-link"' in r.text
+    assert 'class="btn-link"' in r.text
     assert 'Start New Session' in r.text

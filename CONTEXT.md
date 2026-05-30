@@ -50,11 +50,15 @@ _Avoid_: Card, flashcard pair, note
 **Pipeline Step**:
 One stage of card creation for the current English word — Translate, Image, or Audio. The user progresses sequentially through steps. They can skip from any step to discard the current word and move to the next.
 
+**Part of Speech (POS)**:
+A grammatical label (e.g. "n", "v", "adj") that appears on a Flashcard as supplementary context. The user manually sets it per-word using a dropdown on the Translate step. CantoDict may suggest a value, but the suggestion is never auto-committed — the card only gets a POS when the user explicitly picks one. If the user never touches the dropdown, the card has no POS.
+_Avoid_: Tag, label, grammatical category
+
 ## Relationships
 
 - A **Session** contains one or more **English Words**
 - An **English Word** produces zero or more **Entries** (from the bundled cantodict-archive SQLite); the user picks one or skips
-- One selected **Entry** + one or more images + one **Chosen Audio** → one **Flashcard**
+- One selected **Entry** (with an explicitly-set **Part of Speech**) + one or more images + one **Chosen Audio** → one **Flashcard**
 - A **Flashcard** is saved to SQLite and included in `.apkg` export
 - Skipping from any **Pipeline Step** discards the current word and advances to the next **English Word**
 
@@ -66,12 +70,19 @@ One stage of card creation for the current English word — Translate, Image, or
 > **Dev:** "Do characters ever appear on the card itself?"
 > **Domain expert:** "No. They're used internally to look up images and audio, but the card face is clean — image(s) only on front, audio only on back."
 
+> **Dev:** "If CantoDict suggests 'n' for a word and the user never touches the POS dropdown, does the card get 'n'?"
+> **Domain expert:** "No. The suggestion is informational only. No explicit pick = no POS on the card."
+
+> **Dev:** "Can the user type a custom POS like 'classifier'?"
+> **Domain expert:** "Yes — the dropdown has an 'Other…' option that reveals a free-text input. Whatever they type becomes the POS on the card."
+
 ## Flagged ambiguities
 
 - "characters" were initially treated as something the user might need to learn. Resolved: characters are an internal lookup key only, never shown on the card face.
 - Audio format mixing (WebM vs OGG/MP3) — user doesn't care so long as Anki plays it. Opus OGG audio is re-encoded to Vorbis in `CardGenerator._write_media()` because Anki's Qt 5 can't play Opus.
 - Image quality — Brave Search thumbnails are sufficient for flashcard recognition. No follow-to-original needed.
 - Confirm step removed — not needed. The Audio step is the final step before saving.
+- POS toggle removed — the global "Show part-of-speech hints" checkbox was replaced with a per-word dropdown on the Translate step. Default is no POS; each word gets POS only if the user explicitly sets it.
 
 ## Wiktionary Audio Research Notes
 

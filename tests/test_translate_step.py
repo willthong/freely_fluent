@@ -172,6 +172,9 @@ def test_select_translation_redirects_to_image_step():
     # Trigger lookup (populate entries in session)
     client.get(f"/sessions/{session_id}/translate")
 
+    # First select an entry (new requirement: entry must be selected first)
+    client.post(f"/sessions/{session_id}/select-entry", data={"chinese": "你好"})
+
     # Select via the new translate endpoint
     r = client.post(
         f"/translate/{session_id}/select",

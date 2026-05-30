@@ -71,7 +71,8 @@ class CantoneseDictionary:
                 "chinese": row["chinese"],
                 "jyutping": row["jyutping"],
                 "definition": row["definition"],
-                "part_of_speech": extract_pos(row["definition"]),
+                "_cantodict_pos": extract_pos(row["definition"]),
+                "part_of_speech": "",
             }
             for row in rows
         ]

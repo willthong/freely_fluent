@@ -1,0 +1,55 @@
+<div id="pos-dropdown-area">
+  <div class="pos-controls">
+    <label class="pos-label">Part of speech:</label>
+    <select name="pos" id="pos-dropdown"
+            hx-post="/sessions/{{ session_id }}/pos"
+            hx-trigger="change"
+            hx-target="#pos-confirmation"
+            hx-swap="innerHTML">
+      <option value="" selected>(blank — no POS)</option>
+      <option value="n">n</option>
+      <option value="v">v</option>
+      <option value="adj">adj</option>
+      <option value="adv">adv</option>
+      <option value="conj">conj</option>
+      <option value="prep">prep</option>
+      <option value="pron">pron</option>
+      <option value="other">Other…</option>
+    </select>
+    {% if suggestion %}
+    <span class="pos-suggestion">Suggestion: {{ suggestion }}</span>
+    {% endif %}
+    <span id="pos-confirmation"></span>
+    <input type="text" name="pos_custom" id="pos-custom"
+           class="pos-custom-input" style="display:none;"
+           hx-post="/sessions/{{ session_id }}/pos"
+           hx-trigger="blur"
+           hx-target="#pos-confirmation"
+           hx-swap="innerHTML"
+           placeholder="Type custom POS…">
+  </div>
+</div>
+
+<script>
+(function() {
+  var dropdown = document.getElementById('pos-dropdown');
+  var customInput = document.getElementById('pos-custom');
+  if (!dropdown || !customInput) return;
+
+  dropdown.addEventListener('change', function() {
+    if (dropdown.value === 'other') {
+      customInput.style.display = 'inline-block';
+      customInput.focus();
+    } else {
+      customInput.style.display = 'none';
+    }
+  });
+
+  // When the custom input fires its hx-post, also update the dropdown
+  // to reflect the custom selection (so back-navigation state is clear)
+  customInput.addEventListener('htmx:configRequest', function(evt) {
+    evt.detail.parameters['pos'] = customInput.value;
+  });
+})();
+</script>
+</div>

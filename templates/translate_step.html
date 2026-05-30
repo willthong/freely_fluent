@@ -37,7 +37,7 @@
   </div>
   {% if all_result_count > translate_offset|default(10) %}
   <p class="load-more-row">
-    <button type="button" class="btn-load-more"
+    <button type="button" class="btn-outline"
             hx-get="/translate/{{ session_id }}/load-more"
             hx-target="#entry-list"
             hx-swap="beforeend">
@@ -45,18 +45,9 @@
     </button>
   </p>
   {% endif %}
-  <p class="pos-toggle">
-    <label>
-      <input type="checkbox" name="include_pos" id="include_pos" class="pos-checkbox"
-             hx-post="/sessions/{{ session_id }}/pos-toggle"
-             hx-ext="json-enc"
-             hx-vals='{"include_pos": event.target.checked}'
-             hx-trigger="change"
-             hx-on::after-request="var data = JSON.parse(event.detail.xhr.response); event.target.checked = data.include_pos"
-             {% if include_pos %}checked{% endif %}>
-      Show part-of-speech hints
-    </label>
-  </p>
+  <div id="pos-dropdown-area">
+    <p class="pos-placeholder">Select a translation above to set part-of-speech.</p>
+  </div>
   <p><button type="submit" class="btn-primary">Continue to Images</button></p>
 </form>
 <p><button type="button" class="btn-skip"

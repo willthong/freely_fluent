@@ -10,12 +10,13 @@
 <h1>Select Images</h1>
 {% if results %}
 <div class="re-search-row">
+  <label for="re-search-input">Search custom images:</label>
   <input type="text"
          id="re-search-input"
-         class="re-search-input"
-         placeholder="Search images…"
+         class="search-input"
+         placeholder="Search custom images…"
          name="query">
-  <button type="button" class="btn-search"
+  <button type="button" class="btn-outline"
           hx-get="/image/{{ session_id }}/research"
           hx-target="#image-grid"
           hx-swap="innerHTML"
@@ -33,7 +34,7 @@
     <button type="submit" class="btn-primary">Continue to Audio</button>
     <button type="button"
             id="load-more-btn"
-            class="btn-text"
+            class="btn-outline"
             hx-get="/image/{{ session_id }}/load-more"
             hx-target="#image-grid"
             hx-swap="beforeend"

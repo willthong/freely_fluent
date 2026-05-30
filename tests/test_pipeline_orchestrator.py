@@ -116,6 +116,8 @@ def test_full_pipeline_orchestrate_one_word():
     assert len(entries) == 1
     assert entries[0]["chinese"] == "你好"
     session.select_entry(entries[0])
+    assert session.current_step == "translate"
+    session.advance_to_image()
     assert session.current_step == "image"
 
     # 2. Search images
