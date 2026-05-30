@@ -138,6 +138,27 @@ def test_translate_page_shows_current_word_and_step():
     assert "hello" in r.text
 
 
+def test_translate_page_skip_is_button():
+    """The 'Skip this word' action on the translate step is rendered
+    as a <button> element for visual affordance, not a plain <a> link.
+
+    Story 5: Skip should look like a proper button.
+    """
+    client = _make_app()
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+
+    r = client.get(f"/translate/{session_id}")
+    assert r.status_code == 200
+
+    # The skip element should be a <button> with btn-skip class
+    assert '<button' in r.text
+    assert 'btn-skip' in r.text
+    assert 'Skip this word' in r.text
+    # Should NOT be an <a> link
+    assert '<a href="/sessions/' not in r.text or 'skip' not in r.text.split("<a")[-1]
+
+
 def test_select_translation_redirects_to_image_step():
     """POST /translate/{id}/select with HTMX form submission selects an entry
     and redirects to the image step.
@@ -232,3 +253,148 @@ def test_translate_page_shows_word_list_with_remove_buttons():
     # Each word has a remove button (hx-post to remove endpoint)
     assert 'hx-post="/sessions/' in body
     assert '/remove"' in body
+
+
+# ── Translate pagination (load-more) ──
+
+
+def _make_cantodict_fixture_many_entries(count: int = 15) -> str:
+    """Create a fixture DB with *count* entries all matching "run"."""
+    import sqlite3, tempfile
+    tmp = tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False)
+    conn = sqlite3.connect(tmp.name)
+    conn.execute("""
+        CREATE TABLE Entries (
+            entry_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chinese TEXT,
+            entry_type INTEGER NOT NULL,
+            cantodict_id INTEGER NOT NULL,
+            definition TEXT,
+            jyutping TEXT
+        )
+    """)
+    for i in range(count):
+        chinese = chr(0x4E00 + i)  # unique Chinese char for each entry
+        definition = f"run (sense {i}); to move quickly"
+        conn.execute(
+            "INSERT INTO Entries (chinese, entry_type, cantodict_id, definition, jyutping) "
+            "VALUES (?, 2, ?, ?, ?)",
+            (chinese, 100 + i, definition, f"jyutping{i}"),
+        )
+    conn.commit()
+    conn.close()
+    return tmp.name
+
+
+def _make_app_with_many_entries(count: int = 15):
+    """Create a fully configured app with *count* entries for "run"."""
+    import httpx
+    cantodict_path = _make_cantodict_fixture_many_entries(count)
+    card_db_path = _make_card_store_fixture()
+    cantodict = CantoneseDictionary(cantodict_path)
+    card_store = CardStore(card_db_path)
+    card_generator = CardGenerator()
+    # Use a mock brave client (not needed for translate, but create_app requires api_key)
+    brave_client = httpx.Client(transport=httpx.MockTransport(
+        lambda r: httpx.Response(200, json={"results": []})
+    ))
+    app = create_app(
+        cantodict=cantodict,
+        card_store=card_store,
+        card_generator=card_generator,
+        brave_client=brave_client,
+        api_key="test-key",
+    )
+    return TestClient(app)
+
+
+def test_translate_page_shows_first_10_entries():
+    """GET /translate/{id} initially shows only the first 10 entries.
+    Story 4: Paginate the translate step to 10 entries at a time.
+    """
+    client = _make_app_with_many_entries(15)
+    r = client.post("/sessions", json={"words": ["run"]})
+    session_id = r.json()["session_id"]
+
+    r = client.get(f"/translate/{session_id}")
+    assert r.status_code == 200
+    body = r.text
+
+    # First 10 entries should be visible
+    for i in range(10):
+        assert f"(sense {i})" in body
+
+    # Entry 11 (index 10) should NOT be visible
+    assert "(sense 10)" not in body
+
+    # Load-more trigger should be present
+    assert 'load-more' in body or 'hx-get' in body
+
+
+def test_translate_load_more_returns_next_batch():
+    """GET /translate/{id}/load-more returns entries 11-20.
+    Story 4: 'Load more' retrieves the next batch of entries.
+    """
+    client = _make_app_with_many_entries(15)
+    r = client.post("/sessions", json={"words": ["run"]})
+    session_id = r.json()["session_id"]
+
+    # Load initial batch
+    client.get(f"/translate/{session_id}")
+
+    # Load more
+    r = client.get(f"/translate/{session_id}/load-more")
+    assert r.status_code == 200
+    body = r.text
+
+    # Next batch: entries 10-19 (indices 10-19)
+    assert "(sense 10)" in body
+    # Entries from first batch should NOT be in the HTMX fragment
+    assert "(sense 0)" not in body
+
+
+def test_translate_load_more_exhausted():
+    """After all entries have been shown, load-more returns empty.
+    Story 4: 'Load more' button disappears when all entries shown.
+    """
+    client = _make_app_with_many_entries(5)  # fewer than 10 = no pagination needed
+    r = client.post("/sessions", json={"words": ["run"]})
+    session_id = r.json()["session_id"]
+
+    r = client.get(f"/translate/{session_id}")
+    assert r.status_code == 200
+
+    # Only 5 entries, no load-more needed
+    assert "(sense 0)" in r.text
+    assert "(sense 4)" in r.text
+
+    # Load-more should return empty since all entries already shown
+    r = client.get(f"/translate/{session_id}/load-more")
+    assert r.status_code == 200
+    assert r.text.strip() == "" or "(sense 0)" not in r.text
+
+
+def test_translate_load_more_not_on_translate_step():
+    """Load-more returns 400 when not on translate step.
+    Story 4: Only available on translate step.
+    """
+    client = _make_app_with_many_entries(15)
+    r = client.post("/sessions", json={"words": ["run"]})
+    session_id = r.json()["session_id"]
+
+    # Advance past translate step
+    client.get(f"/sessions/{session_id}/translate")
+    client.post(f"/sessions/{session_id}/entries", json={"chinese": chr(0x4E00)})
+
+    # Not on translate step anymore
+    r = client.get(f"/translate/{session_id}/load-more")
+    assert r.status_code == 400
+
+
+def test_translate_load_more_returns_404_for_unknown_session():
+    """Load-more returns 404 for nonexistent session.
+    Story 4: Invalid session handling.
+    """
+    client = _make_app_with_many_entries(15)
+    r = client.get("/translate/nonexistent/load-more")
+    assert r.status_code == 404

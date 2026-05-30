@@ -9,6 +9,22 @@
 {% block content %}
 <h1>Select Images</h1>
 {% if results %}
+<div class="re-search-row">
+  <input type="text"
+         id="re-search-input"
+         class="re-search-input"
+         placeholder="Search images…"
+         name="query">
+  <button type="button" class="btn-search"
+          hx-get="/image/{{ session_id }}/research"
+          hx-target="#image-grid"
+          hx-swap="innerHTML"
+          hx-include="#re-search-input"
+          hx-indicator="#re-search-indicator">
+    Search
+  </button>
+  <span id="re-search-indicator" class="htmx-indicator">Searching…</span>
+</div>
 <form id="image-form" method="post" action="/image/{{ session_id }}">
   <div id="image-grid" class="image-grid">
     {% include "_image_cards.html" with context %}
@@ -27,9 +43,15 @@
     <span id="load-more-indicator" class="htmx-indicator">Loading...</span>
   </p>
 </form>
-<p><a href="/sessions/{{ session_id }}/skip" class="skip-link">Skip this word</a></p>
+<p><button type="button" class="btn-skip"
+        hx-get="/sessions/{{ session_id }}/skip"
+        hx-target="body"
+        hx-swap="innerHTML">Skip this word</button></p>
 {% else %}
 <p>No images found.</p>
-<p><a href="/sessions/{{ session_id }}/skip" class="skip-link">Skip this word</a></p>
+<p><button type="button" class="btn-skip"
+        hx-get="/sessions/{{ session_id }}/skip"
+        hx-target="body"
+        hx-swap="innerHTML">Skip this word</button></p>
 {% endif %}
 {% endblock %}

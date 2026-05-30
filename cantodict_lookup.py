@@ -15,17 +15,29 @@ from typing import Any
 # Matched longest-first so "adj." wins over a hypothetical "a." prefix.
 _POS_PREFIX_RE = re.compile(r"^(adj|adv|conj|interj|n|num|prep|pron|v|aux\.v)\.", re.IGNORECASE)
 
+# Some definitions use bracket format, e.g. "[1] [n] orange" or
+# "[ 粵 ] [1] [v] eat; have a meal".  Match [pos] anywhere in the string.
+_POS_BRACKET_RE = re.compile(r"\[(adj|adv|conj|interj|n|num|prep|pron|v|aux\.v)\]", re.IGNORECASE)
+
 
 def extract_pos(definition: str) -> str:
-    """Extract a part-of-speech abbreviation from the start of a definition.
+    """Extract a part-of-speech abbreviation from a CantoDict definition.
 
-    CantoDict definitions typically begin with a tag such as ``n.``, ``v.``,
-    ``adj.``, etc.  The trailing punctuation is stripped so the returned value
-    is a clean label (e.g. ``"n"`` not ``"n."``).
+    Supports two formats:
+    1. Prefix format: ``n. hello; hi`` — tag at the start followed by a dot.
+    2. Bracket format: ``[1] [n] orange`` — ``[pos]`` anywhere in the string.
 
-    Returns ``""`` when no recognised prefix is found.
+    The trailing punctuation is stripped so the returned value is a clean
+    label (e.g. ``"n"`` not ``"n."``).
+
+    Returns ``""`` when no recognised abbreviation is found.
     """
+    # Try prefix format first: "n. ...", "v. ..." at the start
     m = _POS_PREFIX_RE.match(definition)
+    if m:
+        return m.group(1).lower()
+    # Fall back to bracket format: "[n]", "[v]" anywhere
+    m = _POS_BRACKET_RE.search(definition)
     if m:
         return m.group(1).lower()
     return ""
@@ -41,6 +53,11 @@ class CantoneseDictionary:
     def lookup(self, english_word: str) -> list[dict[str, Any]]:
         """Return entries whose definition contains *english_word*.
 
+        Results are sorted with exact/standalone matches first:
+        entries where *english_word* appears as a standalone token
+        (preceded by start-of-string, space, punctuation, or bracket)
+        rank highest, then all remaining LIKE substring matches.
+
         Each returned dict includes a ``part_of_speech`` key extracted from
         the definition text.
         """
@@ -49,7 +66,7 @@ class CantoneseDictionary:
             "SELECT chinese, jyutping, definition FROM Entries WHERE definition LIKE ?",
             (pattern,),
         ).fetchall()
-        return [
+        entries = [
             {
                 "chinese": row["chinese"],
                 "jyutping": row["jyutping"],
@@ -58,6 +75,18 @@ class CantoneseDictionary:
             }
             for row in rows
         ]
+        # Sort: standalone-token matches first, substring-only matches last
+        # The word must appear as a standalone token (preceded by start-of-string,
+        # space, punctuation, or bracket; followed by same or end-of-string).
+        escaped = re.escape(english_word)
+        boundary_re = re.compile(
+            r'(?:^|[\s\[\]\(\)\{\}.,;:!?"\'/\\-])'
+            + escaped
+            + r'(?:$|[\s\[\]\(\)\{\}.,;:!?"\'/\\-])',
+            re.IGNORECASE,
+        )
+        entries.sort(key=lambda e: 0 if boundary_re.search(e["definition"]) else 1)
+        return entries
 
     def close(self) -> None:
         self._conn.close()

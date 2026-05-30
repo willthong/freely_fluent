@@ -76,7 +76,10 @@
   </p>
 </div>
 
-<p><a href="/sessions/{{ session_id }}/skip" class="skip-link">Skip this word</a></p>
+<p><button type="button" class="btn-skip"
+        hx-get="/sessions/{{ session_id }}/skip"
+        hx-target="body"
+        hx-swap="innerHTML">Skip this word</button></p>
 <div id="result"></div>
 
 <script>
@@ -114,7 +117,11 @@ function renderJyutpingEditor(raw) {
       var syl = splitSyllable(trimmed);
       html += '<span class="jyutping-syllable">';
       html += '<span class="jyutping-text">' + syl.text + '</span>';
-      html += '<input type="number" class="tone-input" value="' + syl.tone + '" min="1" max="9" step="1" size="1">';
+      html += '<select class="tone-select">';
+      for (var t = 1; t <= 6; t++) {
+        html += '<option value="' + t + '"' + (syl.tone == t ? ' selected' : '') + '>' + t + '</option>';
+      }
+      html += '</select>';
       html += '<button type="button" class="syllable-remove" onclick="removeSyllable(this)" title="Delete this syllable">&times;</button>';
       html += '</span>';
     }
@@ -137,7 +144,7 @@ function getModifiedJyutping() {
   for (var i = 0; i < syllables.length; i++) {
     var syl = syllables[i];
     var text = syl.querySelector('.jyutping-text').textContent;
-    var tone = syl.querySelector('.tone-input').value || '';
+    var tone = syl.querySelector('.tone-select').value || '';
     parts.push(text + tone);
   }
   return parts.join(' ');

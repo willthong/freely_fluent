@@ -62,6 +62,19 @@ class PipelineOrchestrator:
         characters = session.selected_characters
         return self._brave.search(characters, count=batch_size)
 
+    def search_images_with_query(
+        self, session: "SessionManager", query: str, batch_size: int = 200
+    ) -> list[dict[str, str]]:
+        """Search for images using a user-supplied *query* string.
+
+        Unlike ``search_images`` which uses the session's selected characters,
+        this method uses the caller-provided query. Results replace the
+        session's cached image results.
+        """
+        results = self._brave.search(query, count=batch_size)
+        session.store_image_results(results)
+        return results
+
     def fetch_wiktionary_audio_url(
         self, session: "SessionManager"
     ) -> str | None:

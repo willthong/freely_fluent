@@ -403,10 +403,10 @@ def test_translate_continue_button_is_primary():
 
 
 def test_translate_skip_link_has_class():
-    """The 'Skip this word' link on the translate page must use the
-    'skip-link' class for danger-colour styling.
+    """The 'Skip this word' action on the translate page is now a button
+    using the 'btn-skip' class for danger-colour styling.
 
-    Story F4: Skip action is visually distinct in danger colour.
+    Story 5: Skip should look like a proper button.
     """
     client = _make_app()
     r = client.post("/sessions", json={"words": ["hello"]})
@@ -414,7 +414,7 @@ def test_translate_skip_link_has_class():
 
     r = client.get(f"/translate/{session_id}")
     assert r.status_code == 200
-    assert 'class="skip-link"' in r.text
+    assert 'class="btn-skip"' in r.text
     assert 'Skip this word' in r.text
 
 
@@ -524,10 +524,10 @@ def test_image_continue_button_is_primary():
 
 
 def test_image_skip_link_has_class():
-    """The 'Skip this word' link on the image page must use the
-    'skip-link' class for danger-colour styling.
+    """The 'Skip this word' action on the image page is now a button
+    using the 'btn-skip' class for danger-colour styling.
 
-    Story F5: Skip action is visually distinct in danger colour.
+    Story 5: Skip should look like a proper button.
     """
     client = _make_app()
     r = client.post("/sessions", json={"words": ["hello"]})
@@ -536,7 +536,7 @@ def test_image_skip_link_has_class():
 
     r = client.get(f"/image/{session_id}")
     assert r.status_code == 200
-    assert 'class="skip-link"' in r.text
+    assert 'class="btn-skip"' in r.text
     assert 'Skip this word' in r.text
 
 
@@ -692,10 +692,10 @@ def test_audio_preview_section_uses_card():
 
 
 def test_audio_skip_link_has_class():
-    """The 'Skip this word' link on the audio page must use the
-    'skip-link' class for danger-colour styling.
+    """The 'Skip this word' action on the audio page is now a button
+    using the 'btn-skip' class for danger-colour styling.
 
-    Story F6: Skip action is visually distinct in danger colour.
+    Story 5: Skip should look like a proper button.
     """
     client = _make_app()
     r = client.post("/sessions", json={"words": ["hello"]})
@@ -704,7 +704,7 @@ def test_audio_skip_link_has_class():
 
     r = client.get(f"/audio/{session_id}")
     assert r.status_code == 200
-    assert 'class="skip-link"' in r.text
+    assert 'class="btn-skip"' in r.text
     assert 'Skip this word' in r.text
 
 

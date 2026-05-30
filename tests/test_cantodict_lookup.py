@@ -174,3 +174,70 @@ def test_lookup_matches_subword():
     assert len(entries) == 2
     assert entries[0]["chinese"] == "水"
     assert entries[1]["chinese"] == "多喝水"
+
+
+def _make_fixture_db_exact_vs_substring() -> str:
+    """Create a fixture DB with entries for exact-match-first sorting.
+
+    - "actor" appears as an exact standalone word in one entry
+    - "actor" appears inside "tractor" in another entry
+    """
+    tmp = tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False)
+    conn = sqlite3.connect(tmp.name)
+    conn.execute("""
+        CREATE TABLE Entries (
+            entry_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chinese TEXT,
+            entry_type INTEGER NOT NULL,
+            cantodict_id INTEGER NOT NULL,
+            definition TEXT,
+            jyutping TEXT
+        )
+    """)
+    conn.execute("""
+        INSERT INTO Entries (chinese, entry_type, cantodict_id, definition, jyutping)
+        VALUES
+            ('演員', 2, 200, 'actor; performer', 'jin4 jyun4'),
+            ('拖拉機', 2, 201, 'tractor (agricultural vehicle)', 'to1 laa1 gei1'),
+            ('歌星', 2, 202, 'singer; vocalist; also actor', 'go1 sing1')
+    """)
+    conn.commit()
+    conn.close()
+    return tmp.name
+
+
+def test_lookup_exact_matches_sorted_before_substring():
+    """Exact-match entries (word as standalone token in definition)
+    sort before substring-only entries.
+
+    Searching 'actor' should return:
+      1. '演員' (definition starts with 'actor')
+      2. '歌星' (definition contains 'actor' as a standalone token: ', also actor')
+      3. '拖拉機' (definition contains 'tractor' — only a substring match)
+    """
+    db_path = _make_fixture_db_exact_vs_substring()
+    dic = CantoneseDictionary(db_path)
+
+    entries = dic.lookup("actor")
+
+    assert len(entries) == 3
+    # Exact matches (standalone tokens) come first
+    assert entries[0]["chinese"] == "演員"
+    assert entries[1]["chinese"] == "歌星"
+    # Substring-only match comes last
+    assert entries[2]["chinese"] == "拖拉機"
+
+
+def test_extract_pos_parses_bracket_format():
+    """extract_pos also handles POS in bracket format [n], [v], [adj] etc.
+    used by the real CantoDict database (e.g. "[1] [n] orange")."""
+    from cantodict_lookup import extract_pos
+
+    assert extract_pos("[1] [n] orange (tree and fruit)") == "n"
+    assert extract_pos("[1] [v] eat; have a meal") == "v"
+    assert extract_pos("[1] [adj] happy; joyful") == "adj"
+    assert extract_pos("[1] [adv] quickly; fast") == "adv"
+    assert extract_pos("[ 粵 ] sik6 | [ 國 ] shi2 [1] [v] eat; have a meal") == "v"
+    assert extract_pos("[1] [conj] and; also") == "conj"
+    assert extract_pos("[1] [pron] I; me") == "pron"
+    assert extract_pos("[1] [prep] in; at") == "prep"

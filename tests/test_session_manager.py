@@ -778,3 +778,92 @@ def test_completion_passes_session_id_to_export():
     # Export link should contain the session_id
     assert "export" in html
     assert sid in html
+
+
+# ── Back navigation ──
+
+
+def test_go_back_from_image_to_translate():
+    """go_back() from image step returns to translate and clears entry/images."""
+    sm = SessionManager(["hello"])
+    sm.select_entry({"chinese": "你", "jyutping": "nei5"})
+    sm.add_image({"thumbnail_url": b"\x89PNG"})
+    sm.store_image_results([{"url": "img1.jpg"}, {"url": "img2.jpg"}])
+    sm.load_more_images(12)
+
+    assert sm.current_step == "audio"
+
+    # Go back twice (audio -> image, image -> translate)
+    step = sm.go_back()
+    assert step == "image"
+    assert sm.current_step == "image"
+    # Audio-specific state cleared
+    assert sm.selected_audio is None
+
+    step = sm.go_back()
+    assert step == "translate"
+    assert sm.current_step == "translate"
+    # Entry and image state cleared
+    assert sm.selected_entry is None
+    assert sm.selected_characters is None
+    assert sm.selected_images == []
+    assert sm.all_image_results == []
+    assert sm.image_offset == 0
+
+
+def test_go_back_from_audio_to_image():
+    """go_back() from audio step returns to image, preserves entry."""
+    sm = SessionManager(["hello"])
+    sm.select_entry({"chinese": "你", "jyutping": "nei5"})
+    sm.add_image({"thumbnail_url": b"\x89PNG"})
+    sm.save_recording(b"webm data")
+
+    assert sm.current_step == "audio"
+
+    step = sm.go_back()
+    assert step == "image"
+    assert sm.current_step == "image"
+    # Entry and images preserved
+    assert sm.selected_entry is not None
+    assert sm.selected_characters == "你"
+    # Audio state cleared
+    assert sm.selected_audio is None
+    assert sm.get_recording() is None
+
+
+def test_go_back_from_translate_raises_valueerror():
+    """go_back() on translate step raises ValueError."""
+    sm = SessionManager(["hello"])
+    assert sm.current_step == "translate"
+    with pytest.raises(ValueError, match="already on the first step"):
+        sm.go_back()
+
+
+def test_go_back_on_translate_after_advance_raises_valueerror():
+    """After advancing to the next word, go_back() raises ValueError
+    because the new word starts at translate (first step).
+    """
+    sm = SessionManager(["hello", "goodbye"])
+
+    # Complete word 1
+    sm.select_entry({"chinese": "你", "jyutping": "nei5"})
+    sm.add_image({"thumbnail_url": b"\x89PNG"})
+    sm.select_audio(b"OggS")
+    assert sm.current_word == "goodbye"
+    assert sm.current_step == "translate"
+
+    with pytest.raises(ValueError, match="already on the first step"):
+        sm.go_back()
+
+
+def test_go_back_returns_new_step_name():
+    """go_back() returns the name of the step we navigated to."""
+    sm = SessionManager(["hello"])
+    sm.select_entry({"chinese": "你", "jyutping": "nei5"})
+    sm.add_image({"thumbnail_url": b"\x89PNG"})
+
+    result = sm.go_back()
+    assert result == "image"
+
+    result = sm.go_back()
+    assert result == "translate"

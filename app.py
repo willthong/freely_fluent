@@ -273,7 +273,11 @@ def create_app(
 
     @app.get("/translate/{session_id}", response_class=HTMLResponse)
     def translate_step(request: Request, session_id: str):
-        """Render the translate step page with Cantonese entries."""
+        """Render the translate step page with Cantonese entries.
+
+        Shows only the first 10 entries; remaining entries are loaded
+        via HTMX load-more from the session cache.
+        """
         session = _sessions.get(session_id)
         if session is None:
             return Response(status_code=404)
@@ -282,17 +286,22 @@ def create_app(
         if session.current_step != "translate":
             return Response(status_code=400)
         entries = _get_orchestrator().lookup_translations(session, session.current_word)
+        session.store_translate_results(entries)
+        first_batch = entries[:10]
+        session.load_more_translations(10)  # advance cursor past first batch
         return templates.TemplateResponse(
             request,
             "translate_step.html",
             {
                 "session_id": session_id,
                 "english_word": session.current_word,
-                "entries": entries,
+                "entries": first_batch,
                 "include_pos": session._include_pos,
                 "current_step": session.current_step,
                 "words": session.words,
                 "word_index": session._word_index,
+                "translate_offset": 10,
+                "all_result_count": len(entries),
             },
         )
 
@@ -309,6 +318,34 @@ def create_app(
         session.select_entry(entry)
         return Response(status_code=303, headers={"Location": f"/image/{session_id}"})
 
+    # ── Translate load-more (HTMX) ──
+
+    @app.get("/translate/{session_id}/load-more")
+    def translate_load_more(request: Request, session_id: str):
+        """HTMX endpoint: return the next batch of translation entries."""
+        session = _sessions.get(session_id)
+        if session is None:
+            return Response(status_code=404)
+        if session.current_word is None:
+            return Response(status_code=404)
+        if session.current_step != "translate":
+            return Response(status_code=400)
+        if not session.all_translate_results:
+            return Response(status_code=400)
+        batch_size = 10
+        cursor = session.load_more_translations(batch_size)
+        start = cursor - batch_size
+        results = session.all_translate_results[start:cursor]
+        return templates.TemplateResponse(
+            request,
+            "_translate_entries.html",
+            {
+                "entries": results,
+                "session_id": session_id,
+                "include_pos": session._include_pos,
+            },
+        )
+
     # ── Translate (programmatic) ──
 
     @app.get("/sessions/{session_id}/translate")
@@ -319,6 +356,7 @@ def create_app(
         if session.current_step != "translate":
             return {"error": "not on translate step"}
         entries = _get_orchestrator().lookup_translations(session, session.current_word)
+        session.store_translate_results(entries)
         if not entries:
             word = session.current_word
             session.skip()
@@ -527,6 +565,35 @@ def create_app(
             "current_step": session.current_step,
         }
 
+    # ── Image re-search (HTMX) ──
+
+    @app.get("/image/{session_id}/research")
+    def image_re_search(request: Request, session_id: str, query: str = ""):
+        """HTMX endpoint: re-search images with a custom query.
+
+        Returns ``_image_cards.html`` with fresh results from the custom
+        search query. The orchestorator uses the provided query string
+        instead of the session's selected_characters.
+        """
+        session = _sessions.get(session_id)
+        if session is None:
+            return Response(status_code=404)
+        characters = session.selected_characters
+        if not characters:
+            return {"error": "no entry selected"}
+        if session.current_step != "image":
+            return Response(status_code=400)
+        results = _get_orchestrator().search_images_with_query(session, query)
+        session.load_more_images(len(results))  # mark all as shown
+        return templates.TemplateResponse(
+            request,
+            "_image_cards.html",
+            {
+                "results": results,
+                "image_offset": 0,
+            },
+        )
+
     # ── Image step (HTML page) ──
 
     @app.get("/image/{session_id}", response_class=HTMLResponse)
@@ -597,6 +664,24 @@ def create_app(
             return RedirectResponse(url=f"/image/{session_id}", status_code=303)
         return RedirectResponse(url=f"/audio/{session_id}", status_code=303)
 
+    # ── Back navigation ──
+
+    @app.post("/sessions/{session_id}/back")
+    def go_back(request: Request, session_id: str):
+        """Go back one pipeline step.
+
+        Redirects to the appropriate step page. Returns 400 if already
+        on the first step (translate).
+        """
+        session = _sessions.get(session_id)
+        if session is None:
+            return Response(status_code=404)
+        try:
+            step = session.go_back()
+        except ValueError:
+            return Response(status_code=400)
+        return RedirectResponse(url=f"/{step}/{session_id}", status_code=303)
+
     # ── Skip ──
 
     @app.api_route("/sessions/{session_id}/skip", methods=["GET", "POST"])
@@ -662,7 +747,7 @@ def create_app(
             os.unlink(tmp_path)
         return Response(
             content=data,
-            media_type="application/zip",
+            media_type="application/octet-stream",
             headers={"Content-Disposition": 'attachment; filename="cantonese_words.apkg"'},
         )
 

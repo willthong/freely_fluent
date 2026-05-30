@@ -294,3 +294,98 @@ def _make_audio_download_client():
     audio_bytes = b"OggS\x00\x00\x00\x00mock audio data"
     transport = MockTransport(lambda request: Response(200, content=audio_bytes))
     return Client(transport=transport)
+
+
+# ── Image re-search ──
+
+
+def _make_re_search_brave_client():
+    """Brave client that returns different results based on query."""
+    def handler(request):
+        # Parse query param from URL
+        import urllib.parse
+        parsed = urllib.parse.urlparse(str(request.url))
+        params = urllib.parse.parse_qs(parsed.query)
+        query = params.get("q", [""])[0]
+
+        if "custom" in query.lower():
+            return Response(200, json={
+                "results": [
+                    {"type": "image_result", "url": "https://ex.com/custom1",
+                     "thumbnail": {"src": "https://ex.com/thumb_custom1.jpg", "width": 480, "height": 360},
+                     "properties": {"url": "https://ex.com/orig_custom1.jpg"}},
+                ]
+            })
+        # Default results (matching characters)
+        return Response(200, json={
+            "results": [
+                {"type": "image_result", "url": "https://ex.com/default1",
+                 "thumbnail": {"src": "https://ex.com/thumb_default1.jpg", "width": 480, "height": 360},
+                 "properties": {"url": "https://ex.com/orig_default1.jpg"}},
+            ]
+        })
+    return Client(transport=MockTransport(handler))
+
+
+def _make_re_search_app():
+    """Create an app with the re-search-aware Brave client."""
+    import httpx
+    from card_generator import CardGenerator
+    cantodict_path = _make_cantodict_fixture()
+    card_db_path = _make_card_store_fixture()
+    cantodict = CantoneseDictionary(cantodict_path)
+    card_store = CardStore(card_db_path)
+    card_generator = CardGenerator()
+    brave_client = _make_re_search_brave_client()
+    app = create_app(
+        cantodict=cantodict,
+        card_store=card_store,
+        card_generator=card_generator,
+        brave_client=brave_client,
+        api_key="test-key",
+    )
+    return TestClient(app)
+
+
+def test_image_re_search_returns_different_results():
+    """GET /image/{id}/research?query=... returns new images
+    based on the supplied query, not the original character-based query.
+    """
+    client = _make_re_search_app()
+
+    # Start session → select entry → image step
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+
+    client.get(f"/sessions/{session_id}/translate")
+    client.post(f"/sessions/{session_id}/entries", json={"chinese": "\u4f60\u597d"})
+
+    # Initial search (character-based: "\u4f60\u597d") → default results
+    r = client.get(f"/image/{session_id}")
+    assert r.status_code == 200
+    assert "https://ex.com/thumb_default1.jpg" in r.text
+
+    # Re-search with custom query → custom results
+    r = client.get(f"/image/{session_id}/research", params={"query": "custom search"})
+    assert r.status_code == 200
+    assert "https://ex.com/thumb_custom1.jpg" in r.text
+    assert "https://ex.com/thumb_default1.jpg" not in r.text
+
+
+def test_image_re_search_returns_404_for_unknown_session():
+    """Re-search returns 404 for nonexistent session."""
+    client = _make_re_search_app()
+    r = client.get("/image/nonexistent/research", params={"query": "test"})
+    assert r.status_code == 404
+
+
+def test_image_re_search_returns_400_for_no_entry():
+    """Re-search returns 400 when no entry has been selected."""
+    client = _make_re_search_app()
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+
+    # No entry selected yet
+    r = client.get(f"/image/{session_id}/research", params={"query": "test"})
+    assert r.status_code == 200
+    assert r.json().get("error") is not None

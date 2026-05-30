@@ -193,7 +193,7 @@ def test_full_pipeline_session_start_to_export():
     # 9. Export .apkg
     r = client.get("/export")
     assert r.status_code == 200
-    assert r.headers["content-type"] == "application/zip"
+    assert r.headers["content-type"] == "application/octet-stream"
     assert r.headers["content-disposition"].startswith("attachment")
     assert "cantonese_words.apkg" in r.headers["content-disposition"]
     assert zipfile.is_zipfile(io.BytesIO(r.content))

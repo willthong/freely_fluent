@@ -1,19 +1,19 @@
-/* ── Solarized Dark CSS Custom Properties ── */
+/* ── AnkiDroid-inspired Dark Mode CSS Custom Properties ── */
 
 :root {
-    --bg: #002b36;
-    --surface: #073642;
-    --border: #586e75;
-    --text: #839496;
-    --text-bright: #93a1a1;
-    --text-highlight: #eee8d5;
-    --accent: #268bd2;
-    --accent-hover: #1a6da0;
-    --success: #859900;
-    --warning: #b58900;
-    --danger: #dc322f;
-    --cyan: #2aa198;
-    --magenta: #d33682;
+    --bg: #1a1a2e;
+    --surface: #16213e;
+    --border: #3a4a6b;
+    --text: #a0aec0;
+    --text-bright: #e2e8f0;
+    --text-highlight: #f7fafc;
+    --accent: #4fc3f7;
+    --accent-hover: #29b6f6;
+    --success: #66bb6a;
+    --warning: #ffa726;
+    --danger: #ef5350;
+    --cyan: #26c6da;
+    --magenta: #ab47bc;
 }
 
 /* ── Reset & Base ── */
@@ -268,6 +268,21 @@ body {
 
 .skip-link:hover {
     text-decoration: underline;
+}
+
+.btn-skip {
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid var(--danger);
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.btn-skip:hover {
+    background: var(--danger);
+    color: var(--bg);
 }
 
 .pos-checkbox {

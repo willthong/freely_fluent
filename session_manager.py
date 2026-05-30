@@ -36,6 +36,8 @@ class SessionManager:
         self._selected_images: list[dict[str, Any]] = []
         self._selected_audio: bytes | None = None
         self._recording: bytes | None = None
+        self._translate_offset = 0
+        self._translate_results: list[dict[str, Any]] = []
         self._image_offset = 0
         self._image_results: list[dict[str, Any]] = []
         self._session_id: str = ""
@@ -141,6 +143,38 @@ class SessionManager:
     def set_include_pos(self, value: bool) -> None:
         """Set whether part-of-speech hints should appear on cards."""
         self._include_pos = value
+
+    def go_back(self) -> str:
+        """Go back one pipeline step, clearing current step's selections.
+
+        From Audio -> Image: clears audio selection and recording.
+        From Image -> Translate: clears entry, characters, images, and
+            image pagination state.
+
+        Returns the name of the step we navigated to.
+
+        Raises:
+            ValueError: if already on the first step (translate).
+        """
+        if self._step_index == 0:
+            raise ValueError("already on the first step, cannot go back")
+
+        self._step_index -= 1
+        new_step = self.STEPS[self._step_index]
+
+        if new_step == "image":
+            # Came from audio: clear audio-specific state
+            self._selected_audio = None
+            self._recording = None
+        elif new_step == "translate":
+            # Came from image: clear entry and image state
+            self._selected_entry = None
+            self._selected_characters = None
+            self._selected_images = []
+            self._image_offset = 0
+            self._image_results = []
+
+        return new_step
 
     def skip(self) -> None:
         """Discard the current word and advance to the next."""
@@ -279,6 +313,25 @@ class SessionManager:
         """
         return self._image_results
 
+    @property
+    def translate_offset(self) -> int:
+        """Display cursor: how many translate entries have been shown."""
+        return self._translate_offset
+
+    @property
+    def all_translate_results(self) -> list[dict[str, Any]]:
+        """All translate entries fetched from CantoDict (one call per word)."""
+        return self._translate_results
+
+    def store_translate_results(self, results: list[dict[str, Any]]) -> None:
+        """Store results from CantoDict, replacing any previous results."""
+        self._translate_results = list(results)
+
+    def load_more_translations(self, batch_size: int = 10) -> int:
+        """Advance the display cursor by *batch_size*. Returns new cursor."""
+        self._translate_offset += batch_size
+        return self._translate_offset
+
     def store_image_results(self, results: list[dict[str, Any]]) -> None:
         """Store results from Brave, replacing any previous results.
 
@@ -301,5 +354,7 @@ class SessionManager:
         self._selected_images = []
         self._selected_audio = None
         self._recording = None
+        self._translate_offset = 0
+        self._translate_results = []
         self._image_offset = 0
         self._image_results = []
