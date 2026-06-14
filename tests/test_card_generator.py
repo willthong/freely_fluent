@@ -375,3 +375,110 @@ def test_card_uses_custom_model_not_basic_reversed():
         assert len(fields) == 4
 
         conn.close()
+
+
+# ── Image downscale tests ──
+
+
+def _make_large_png(width: int = 2000, height: int = 1500) -> bytes:
+    """Create a PNG image of the given dimensions."""
+    from PIL import Image
+    import io
+    img = Image.new("RGB", (width, height), color=(255, 0, 0))
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _make_small_png(width: int = 400, height: int = 300) -> bytes:
+    """Create a small PNG image."""
+    from PIL import Image
+    import io
+    img = Image.new("RGB", (width, height), color=(0, 255, 0))
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _extract_image_from_apkg(apkg_path: str) -> bytes | None:
+    """Extract the first non-media-file image from the apkg zip.
+
+    In genanki packages, media files are stored as numbered files
+    (e.g. "0", "1") in the zip root. The "media" file maps numbers
+    to filenames. We skip "collection.anki2" and "media".
+    """
+    import zipfile
+    import json
+    with zipfile.ZipFile(apkg_path, "r") as z:
+        # Load media mapping to find image files
+        media = json.loads(z.read("media")) if "media" in z.namelist() else {}
+        for name in z.namelist():
+            if name in ("collection.anki2", "media"):
+                continue
+            # Check if it's listed in media with an image extension
+            fname = media.get(name, name)
+            if fname.endswith(".png") or fname.endswith(".jpg") or fname.endswith(".jpeg"):
+                return z.read(name)
+    return None
+
+
+def test_large_image_is_downscaled_at_generation():
+    """Images larger than max_image_width are downscaled."""
+    generator = CardGenerator()
+    large_png = _make_large_png(2000, 1500)
+
+    flashcard = Flashcard(
+        english_word="hello",
+        chinese_characters="你好",
+        jyutping="nei5hou2",
+        image_data=[large_png],
+        audio_data=b"OggS",
+    )
+
+    with tempfile.NamedTemporaryFile(suffix=".apkg", delete=False) as tmp:
+        path = tmp.name
+
+    generator.generate_apkg([flashcard], path)
+
+    # Extract image from apkg and check dimensions
+    img_data = _extract_image_from_apkg(path)
+    assert img_data is not None, "Should have extracted an image"
+
+    from PIL import Image
+    import io
+    img = Image.open(io.BytesIO(img_data))
+    w, h = img.size
+    max_dim = max(w, h)
+    assert max_dim <= 800, f"Image too large: {w}x{h}, max dim {max_dim} > 800"
+    # Aspect ratio should be preserved (2000:1500 = 4:3)
+    ratio = w / h
+    assert abs(ratio - 4/3) < 0.05, f"Aspect ratio changed: {w}/{h} = {ratio}"
+
+
+def test_small_image_not_upscaled():
+    """Images smaller than max_image_width are NOT upscaled."""
+    generator = CardGenerator()
+    small_png = _make_small_png(400, 300)
+
+    flashcard = Flashcard(
+        english_word="hello",
+        chinese_characters="你好",
+        jyutping="nei5hou2",
+        image_data=[small_png],
+        audio_data=b"OggS",
+    )
+
+    with tempfile.NamedTemporaryFile(suffix=".apkg", delete=False) as tmp:
+        path = tmp.name
+
+    generator.generate_apkg([flashcard], path)
+
+    img_data = _extract_image_from_apkg(path)
+    assert img_data is not None
+
+    from PIL import Image
+    import io
+    img = Image.open(io.BytesIO(img_data))
+    w, h = img.size
+    assert w == 400, f"Small image was upscaled to {w}"
+    assert h == 300, f"Small image was upscaled to {h}"
