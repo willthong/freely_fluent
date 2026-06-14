@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+
+# Git
+.git/
+.gitignore
+
+# Project files
+TASKS.md
+CONTEXT.md
+README.md
+
+# Tests (not needed in production image)
+tests/
+test_*.py
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
