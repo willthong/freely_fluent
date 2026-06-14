@@ -1044,3 +1044,36 @@ def test_image_submit_redirects_to_audio_page():
     assert "/audio/" in r.headers["location"]
     assert session_id in r.headers["location"]
 
+
+
+# ── Image preview tests ──
+
+
+def test_image_step_renders_preview_elements():
+    """Image step renders image cards with preview overlay for each thumbnail."""
+    cantodict_path = _make_cantodict_fixture()
+    card_db_path = _make_card_store_fixture()
+    brave_client = _make_brave_client()
+
+    cantodict = CantoneseDictionary(cantodict_path)
+    card_store = CardStore(card_db_path)
+    card_generator = CardGenerator()
+
+    app = create_app(
+        cantodict=cantodict,
+        card_store=card_store,
+        card_generator=card_generator,
+        brave_client=brave_client,
+        api_key="test-key",
+    )
+    client = TestClient(app)
+
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+    client.get(f"/sessions/{session_id}/translate")
+    client.post(f"/sessions/{session_id}/entries", json={"chinese": "\u4f60\u597d"})
+
+    r = client.get(f"/image/{session_id}")
+    assert r.status_code == 200
+    assert "image-thumb" in r.text
+    assert "image-preview-overlay" in r.text, "Template should render preview overlay divs"

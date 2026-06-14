@@ -448,7 +448,45 @@ body {
     display: block;
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
+    padding: 4px;
+}
+
+/* ── Image preview overlay (hover/long-press) ── */
+
+.image-preview-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 1000;
+    background: rgba(0, 0, 0, 0.85);
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+}
+
+.image-card:hover .image-preview-overlay {
+    display: flex;
+}
+
+.image-preview-overlay:active {
+    display: none;
+}
+
+.image-preview-img {
+    display: block;
+    max-width: 90vw;
+    max-height: 90vh;
+    object-fit: contain;
+    border-radius: 4px;
+}
+
+/* Mobile: show overlay on long-press via .pressed class */
+.image-card.pressed .image-preview-overlay {
+    display: flex;
 }
 
 .image-checkbox {
