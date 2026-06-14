@@ -662,6 +662,7 @@ def create_app(
                 "current_step": session.current_step,
                 "image_offset": 0,
                 "all_result_count": len(session.all_image_results),
+                "english_word": session.current_word or "",
             },
         )
 

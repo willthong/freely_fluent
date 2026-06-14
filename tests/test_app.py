@@ -1044,3 +1044,77 @@ def test_image_submit_redirects_to_audio_page():
     assert "/audio/" in r.headers["location"]
     assert session_id in r.headers["location"]
 
+
+
+# ── English search tests ──
+
+
+def test_image_step_passes_english_word_to_template():
+    """The image step template receives the English word for the search button."""
+    cantodict_path = _make_cantodict_fixture()
+    card_db_path = _make_card_store_fixture()
+    brave_client = _make_brave_client()
+
+    cantodict = CantoneseDictionary(cantodict_path)
+    card_store = CardStore(card_db_path)
+    card_generator = CardGenerator()
+
+    app = create_app(
+        cantodict=cantodict,
+        card_store=card_store,
+        card_generator=card_generator,
+        brave_client=brave_client,
+        api_key="test-key",
+    )
+    client = TestClient(app)
+
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+    client.get(f"/sessions/{session_id}/translate")
+    client.post(f"/sessions/{session_id}/entries", json={"chinese": "\u4f60\u597d"})
+
+    r = client.get(f"/image/{session_id}")
+    assert r.status_code == 200
+    assert "hello" in r.text, "English word should appear in the image step HTML"
+    assert "Search in English" in r.text, "English search button should be rendered"
+
+
+def test_english_search_uses_query_param():
+    """The research endpoint accepts a custom query and returns results."""
+    cantodict_path = _make_cantodict_fixture()
+    card_db_path = _make_card_store_fixture()
+
+    def handler(request):
+        import httpx
+        return httpx.Response(200, json={
+            "results": [
+                {"type": "image_result", "url": "https://ex.com/en1",
+                 "thumbnail": {"src": "https://ex.com/en_thumb1.jpg", "width": 480, "height": 360},
+                 "properties": {"url": "https://ex.com/en_orig1.jpg"}},
+            ]
+        })
+    brave_client = httpx.Client(transport=httpx.MockTransport(handler))
+
+    cantodict = CantoneseDictionary(cantodict_path)
+    card_store = CardStore(card_db_path)
+    card_generator = CardGenerator()
+
+    app = create_app(
+        cantodict=cantodict,
+        card_store=card_store,
+        card_generator=card_generator,
+        brave_client=brave_client,
+        api_key="test-key",
+    )
+    client = TestClient(app)
+
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+    client.get(f"/sessions/{session_id}/translate")
+    client.post(f"/sessions/{session_id}/entries", json={"chinese": "\u4f60\u597d"})
+    client.get(f"/image/{session_id}")
+
+    # Research with English query
+    r = client.get(f"/image/{session_id}/research", params={"query": "hello"})
+    assert r.status_code == 200
+    assert "en_thumb1.jpg" in r.text
