@@ -1,8 +1,18 @@
 {% extends "base.html" %}
 {% block step_bar %}
 <div class="step-bar">
-  <span class="step done">Translate</span>
-  <span class="step done">Image</span>
+  <button type="submit" class="step done step-back"
+          hx-post="/sessions/{{ session_id }}/back-to/translate"
+          hx-target="body"
+          hx-swap="innerHTML">
+    Translate
+  </button>
+  <button type="submit" class="step done step-back"
+          hx-post="/sessions/{{ session_id }}/back-to/image"
+          hx-target="body"
+          hx-swap="innerHTML">
+    Image
+  </button>
   <span class="step active">Audio</span>
 </div>
 {% endblock %}

@@ -1044,3 +1044,279 @@ def test_image_submit_redirects_to_audio_page():
     assert "/audio/" in r.headers["location"]
     assert session_id in r.headers["location"]
 
+
+
+# ── Back navigation tests ──
+
+
+def test_back_button_from_image_to_translate():
+    """POST /sessions/{id}/back from image step redirects to translate.
+
+    Simulates clicking the back button on the image step.
+    The session should return to translate step and clear the entry.
+    """
+    cantodict_path = _make_cantodict_fixture()
+    card_db_path = _make_card_store_fixture()
+    brave_client = _make_brave_client()
+
+    cantodict = CantoneseDictionary(cantodict_path)
+    card_store = CardStore(card_db_path)
+    card_generator = CardGenerator()
+
+    app = create_app(
+        cantodict=cantodict,
+        card_store=card_store,
+        card_generator=card_generator,
+        brave_client=brave_client,
+        api_key="test-key",
+    )
+    client = TestClient(app)
+
+    # Start session → translate → select entry → advance to image
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+    client.get(f"/sessions/{session_id}/translate")
+    client.post(f"/sessions/{session_id}/entries", json={"chinese": "\u4f60\u597d"})
+
+    # Submit image (moves to audio step via add_image)
+    r = client.post(
+        f"/image/{session_id}",
+        data={"images": ["0"]},
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+
+    # Now at audio step. Go back once (audio → image), check redirect
+    r = client.post(f"/sessions/{session_id}/back", follow_redirects=False)
+    assert r.status_code == 303
+    assert "/image/" in r.headers["location"]
+    assert session_id in r.headers["location"]
+
+    # Go back again (image → translate)
+    r = client.post(f"/sessions/{session_id}/back", follow_redirects=False)
+    assert r.status_code == 303
+    assert "/translate/" in r.headers["location"]
+    assert session_id in r.headers["location"]
+
+    # Verify session state
+    r = client.get(f"/sessions/{session_id}")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["current_step"] == "translate"
+    assert data["current_word"] == "hello"
+
+
+def test_back_button_from_audio_to_image():
+    """POST /sessions/{id}/back from audio step redirects to image.
+
+    Going back from audio should preserve the entry but clear audio state.
+    """
+    cantodict_path = _make_cantodict_fixture()
+    card_db_path = _make_card_store_fixture()
+    wiktionary_client = _make_wiktionary_client()
+    brave_client = _make_brave_client()
+    audio_download_client = _make_audio_download_client()
+
+    cantodict = CantoneseDictionary(cantodict_path)
+    card_store = CardStore(card_db_path)
+    card_generator = CardGenerator()
+
+    app = create_app(
+        cantodict=cantodict,
+        card_store=card_store,
+        card_generator=card_generator,
+        wiktionary_client=wiktionary_client,
+        brave_client=brave_client,
+        audio_download_client=audio_download_client,
+        api_key="test-key",
+    )
+    client = TestClient(app)
+
+    # Start session → full pipeline to audio step
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+    client.get(f"/sessions/{session_id}/translate")
+    client.post(f"/sessions/{session_id}/entries", json={"chinese": "\u4f60\u597d"})
+
+    # Advance to image step
+    client.get(f"/sessions/{session_id}/images")
+    r = client.post(
+        f"/image/{session_id}",
+        data={"images": ["0"]},
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+
+    # Go back from audio to image
+    r = client.post(f"/sessions/{session_id}/back", follow_redirects=False)
+    assert r.status_code == 303
+    assert "/image/" in r.headers["location"]
+    assert session_id in r.headers["location"]
+
+    # Verify session state
+    r = client.get(f"/sessions/{session_id}")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["current_step"] == "image"
+    assert data["current_word"] == "hello"
+
+
+def test_back_button_on_translate_returns_400():
+    """POST /sessions/{id}/back on the first step returns 400."""
+    cantodict_path = _make_cantodict_fixture()
+    card_db_path = _make_card_store_fixture()
+
+    cantodict = CantoneseDictionary(cantodict_path)
+    card_store = CardStore(card_db_path)
+    card_generator = CardGenerator()
+
+    app = create_app(
+        cantodict=cantodict,
+        card_store=card_store,
+        card_generator=card_generator,
+        api_key="test-key",
+    )
+    client = TestClient(app)
+
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+
+    # Try to go back from translate (already first step)
+    r = client.post(f"/sessions/{session_id}/back")
+    assert r.status_code == 400
+
+
+# ── Back-to-step (breadcrumb) navigation tests ──
+
+
+def test_back_to_from_audio_to_translate():
+    """POST /sessions/{id}/back-to/translate jumps from audio to translate.
+
+    Clicking "Translate" in the breadcrumb on the audio step should
+    go back two steps (audio → image → translate).
+    """
+    cantodict_path = _make_cantodict_fixture()
+    card_db_path = _make_card_store_fixture()
+    brave_client = _make_brave_client()
+    wiktionary_client = _make_wiktionary_client()
+    audio_download_client = _make_audio_download_client()
+
+    cantodict = CantoneseDictionary(cantodict_path)
+    card_store = CardStore(card_db_path)
+    card_generator = CardGenerator()
+
+    app = create_app(
+        cantodict=cantodict,
+        card_store=card_store,
+        card_generator=card_generator,
+        wiktionary_client=wiktionary_client,
+        brave_client=brave_client,
+        audio_download_client=audio_download_client,
+        api_key="test-key",
+    )
+    client = TestClient(app)
+
+    # Start session → full pipeline to audio step
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+    client.get(f"/sessions/{session_id}/translate")
+    client.post(f"/sessions/{session_id}/entries", json={"chinese": "\u4f60\u597d"})
+    client.post(
+        f"/image/{session_id}",
+        data={"images": ["0"]},
+        follow_redirects=False,
+    )
+
+    # Back-to translate from audio
+    r = client.post(f"/sessions/{session_id}/back-to/translate", follow_redirects=False)
+    assert r.status_code == 303
+    assert "/translate/" in r.headers["location"]
+
+    # Verify state
+    r = client.get(f"/sessions/{session_id}")
+    assert r.json()["current_step"] == "translate"
+    assert r.json()["current_word"] == "hello"
+
+
+def test_back_to_from_audio_to_image():
+    """POST /sessions/{id}/back-to/image jumps from audio to image."""
+    cantodict_path = _make_cantodict_fixture()
+    card_db_path = _make_card_store_fixture()
+    brave_client = _make_brave_client()
+
+    cantodict = CantoneseDictionary(cantodict_path)
+    card_store = CardStore(card_db_path)
+    card_generator = CardGenerator()
+
+    app = create_app(
+        cantodict=cantodict,
+        card_store=card_store,
+        card_generator=card_generator,
+        brave_client=brave_client,
+        api_key="test-key",
+    )
+    client = TestClient(app)
+
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+    client.get(f"/sessions/{session_id}/translate")
+    client.post(f"/sessions/{session_id}/entries", json={"chinese": "\u4f60\u597d"})
+    client.post(
+        f"/image/{session_id}",
+        data={"images": ["0"]},
+        follow_redirects=False,
+    )
+
+    # Back-to image from audio
+    r = client.post(f"/sessions/{session_id}/back-to/image", follow_redirects=False)
+    assert r.status_code == 303
+    assert "/image/" in r.headers["location"]
+
+    r = client.get(f"/sessions/{session_id}")
+    assert r.json()["current_step"] == "image"
+
+
+def test_back_to_invalid_step_returns_400():
+    """POST /sessions/{id}/back-to/invalid returns 400."""
+    cantodict_path = _make_cantodict_fixture()
+    card_db_path = _make_card_store_fixture()
+
+    cantodict = CantoneseDictionary(cantodict_path)
+    card_store = CardStore(card_db_path)
+    card_generator = CardGenerator()
+
+    app = create_app(
+        cantodict=cantodict,
+        card_store=card_store,
+        card_generator=card_generator,
+        api_key="test-key",
+    )
+    client = TestClient(app)
+
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+    r = client.post(f"/sessions/{session_id}/back-to/invalid")
+    assert r.status_code == 400
+
+
+def test_back_to_same_step_returns_400():
+    """POST /sessions/{id}/back-to/translate on translate step returns 400."""
+    cantodict_path = _make_cantodict_fixture()
+    card_db_path = _make_card_store_fixture()
+
+    cantodict = CantoneseDictionary(cantodict_path)
+    card_store = CardStore(card_db_path)
+    card_generator = CardGenerator()
+
+    app = create_app(
+        cantodict=cantodict,
+        card_store=card_store,
+        card_generator=card_generator,
+        api_key="test-key",
+    )
+    client = TestClient(app)
+
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+    r = client.post(f"/sessions/{session_id}/back-to/translate")
+    assert r.status_code == 400

@@ -73,6 +73,20 @@ body {
 .step.done {
     color: inherit;
 
+.step-back {
+    cursor: pointer;
+    border: none;
+    background: none;
+    font: inherit;
+    color: inherit;
+    padding: 0;
+    transition: color 0.15s;
+}
+
+.step-back:hover {
+    color: var(--accent-hover);
+}
+
 /* ── Word List Bar ── */
 
 .word-list-bar {
