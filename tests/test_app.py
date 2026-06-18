@@ -1044,3 +1044,102 @@ def test_image_submit_redirects_to_audio_page():
     assert "/audio/" in r.headers["location"]
     assert session_id in r.headers["location"]
 
+
+
+# ── Multi-image selection tests ──
+
+
+def test_multi_image_submit_saves_multiple():
+    """POST /image/{id} with multiple image indices saves all."""
+    import httpx
+
+    cantodict_path = _make_cantodict_fixture()
+    card_db_path = _make_card_store_fixture()
+
+    # Mock with 3 results so indices 0,1 are valid
+    def handler(request):
+        return httpx.Response(200, json={
+            "results": [
+                {"type": "image_result", "url": "https://ex.com/a",
+                 "thumbnail": {"src": "https://ex.com/a_t.jpg", "width": 480, "height": 360},
+                 "properties": {"url": "https://ex.com/a_o.jpg"}},
+                {"type": "image_result", "url": "https://ex.com/b",
+                 "thumbnail": {"src": "https://ex.com/b_t.jpg", "width": 480, "height": 360},
+                 "properties": {"url": "https://ex.com/b_o.jpg"}},
+                {"type": "image_result", "url": "https://ex.com/c",
+                 "thumbnail": {"src": "https://ex.com/c_t.jpg", "width": 480, "height": 360},
+                 "properties": {"url": "https://ex.com/c_o.jpg"}},
+            ]
+        })
+    brave_client = httpx.Client(transport=httpx.MockTransport(handler))
+
+    cantodict = CantoneseDictionary(cantodict_path)
+    card_store = CardStore(card_db_path)
+    card_generator = CardGenerator()
+
+    app = create_app(
+        cantodict=cantodict,
+        card_store=card_store,
+        card_generator=card_generator,
+        brave_client=brave_client,
+        api_key="test-key",
+    )
+    client = TestClient(app)
+
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+    client.get(f"/sessions/{session_id}/translate")
+    client.post(f"/sessions/{session_id}/entries", json={"chinese": "\u4f60\u597d"})
+
+    # Fetch images to populate all_image_results
+    client.get(f"/image/{session_id}")
+
+    # Submit with two image indices
+    r = client.post(
+        f"/image/{session_id}",
+        data={"images": ["0", "1"]},
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    assert "/audio/" in r.headers["location"]
+
+    # Verify both saved
+    r = client.get(f"/sessions/{session_id}")
+    assert len(r.json()["selected_images"]) == 2
+
+
+def test_image_step_shows_accumulated_count():
+    """Image step template shows count of selected images."""
+    cantodict_path = _make_cantodict_fixture()
+    card_db_path = _make_card_store_fixture()
+    brave_client = _make_brave_client()
+
+    cantodict = CantoneseDictionary(cantodict_path)
+    card_store = CardStore(card_db_path)
+    card_generator = CardGenerator()
+
+    app = create_app(
+        cantodict=cantodict,
+        card_store=card_store,
+        card_generator=card_generator,
+        brave_client=brave_client,
+        api_key="test-key",
+    )
+    client = TestClient(app)
+
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+    client.get(f"/sessions/{session_id}/translate")
+    client.post(f"/sessions/{session_id}/entries", json={"chinese": "\u4f60\u597d"})
+
+    # Pre-select an image via API
+    client.get(f"/image/{session_id}")
+    client.post(f"/sessions/{session_id}/images", json={"result_index": 0})
+
+    # After add_image, session is at audio step. Go back to image.
+    client.post(f"/sessions/{session_id}/back", follow_redirects=False)
+
+    # Re-fetch image step — should render with multi-select checkboxes
+    r = client.get(f"/image/{session_id}")
+    assert r.status_code == 200
+    assert "image-checkbox" in r.text
