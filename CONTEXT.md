@@ -62,6 +62,24 @@ _Avoid_: Tag, label, grammatical category
 - A **Flashcard** is saved to SQLite and included in `.apkg` export
 - Skipping from any **Pipeline Step** discards the current word and advances to the next **English Word**
 
+## CI / CD pipeline
+
+Merging to `dev` or `main` triggers `.github/workflows/build.yaml`, which:
+
+1. **Tests** — `uv run pytest` (Python 3.14)
+2. **Builds & pushes** a container image to `ghcr.io` (tagged `:main`, `:latest`, and a semver on `main`; `:dev` and `:${{ github.sha }}` on `dev`)
+3. **Deploys** via SSH (`appleboy/ssh-action@v1.2.2`) — `docker compose pull && docker compose up -d`
+   - **`dev`** → target directory `/sharedfolders/AppData/fluent_forever_dev`
+   - **`main`** → target directory `/sharedfolders/AppData/fluent_forever`
+
+### No extra secrets needed
+
+The deploy job runs directly on the GitHub runner (self-hosted or with the shared folders mounted), so no SSH configuration is required. The runner just needs Docker and access to the target directories.
+
+### Docker Compose
+
+`docker-compose.yml` references the pre-built `ghcr.io` image via `image: ghcr.io/earendil-works/freely-fluent:${TAG:-latest}` instead of a local build. The compose files at the deploy paths should be kept in sync with the repo.
+
 ## Example dialogue
 
 > **Dev:** "When the user skips at the Image step, what happens to the Entry they already picked?"
