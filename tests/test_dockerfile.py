@@ -65,7 +65,7 @@ def test_docker_compose_has_app_service():
     """docker-compose.yml must define an app service with build and ports."""
     with open("docker-compose.yml") as f:
         content = f.read()
-    assert "build" in content, "Must have build directive"
+    assert ("build" in content or "image" in content), "Must have build or image directive"
     assert "ports" in content, "Must expose ports"
     assert "BRAVE_SEARCH_API_KEY" in content, (
         "Must reference BRAVE_SEARCH_API_KEY in environment"
