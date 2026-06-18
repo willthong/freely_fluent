@@ -88,13 +88,13 @@ jobs:
       - name: Deploy to dev
         if: github.ref_name == 'dev'
         run: |
-          cd /sharedfolders/AppData/fluent_forever_dev
+          cd /sharedfolders/AppData/freely_fluent_dev
           docker compose pull
           docker compose up -d
 
       - name: Deploy to production
         if: github.ref_name == 'main'
         run: |
-          cd /sharedfolders/AppData/fluent_forever
+          cd /sharedfolders/AppData/freely_fluent
           docker compose pull
           docker compose up -d
