@@ -76,46 +76,50 @@ function dismissPreview() {
 }
 
 if (grid) {
+  // Start 500ms timer — fallback for browsers where contextmenu doesn't fire
   grid.addEventListener('touchstart', function(e) {
     var card = e.target.closest('.image-card');
     if (!card) return;
     previewCard = card;
-    var touchEvent = e;
     longPressTimer = setTimeout(function() {
-      /*
-       * Suppress the browser's native long-press behavior
-       * (Save Image dialog on Android, callout on iOS).
-       * With {passive: false}, preventDefault() is honored.
-       * We call it here (not sync in the handler) so scrolling
-       * on a quick touch is unaffected.
-       */
-      try { touchEvent.preventDefault(); } catch(_) {}
       card.classList.add('pressed');
     }, 500);
-  }, {passive: false});
-
-  grid.addEventListener('touchend', function(e) {
-    clearTimeout(longPressTimer);
-    var card = e.target.closest('.image-card');
-    if (card) {
-      /*
-       * If the long-press timer already fired, card has 'pressed'.
-       * Remove it immediately on finger lift — no delay.
-       * If timer hadn't fired yet (quick tap), dismiss is a no-op
-       * because pressed was never added.
-       */
-      card.classList.remove('pressed');
-    }
-    previewCard = null;
   }, {passive: true});
 
+  // Cancel timer if finger moves (not a steady hold)
   grid.addEventListener('touchmove', function(e) {
     clearTimeout(longPressTimer);
   }, {passive: true});
 
-  /* Also dismiss on any click/tap outside the grid or on a non-pressed card */
+  // Dismiss preview immediately on finger lift
+  grid.addEventListener('touchend', function(e) {
+    dismissPreview();
+  }, {passive: true});
+
+  /*
+   * Suppress browser's native long-press (Save Image dialog / callout)
+   * and show preview synchronously.
+   *
+   * contextmenu fires at ~300ms while the finger is still down
+   * (Chrome, Firefox, Safari). preventDefault() here IS effective
+   * because it's called synchronously during event dispatch.
+   *
+   * We also add 'pressed' immediately so the preview shows at
+   * ~300ms instead of waiting for the 500ms timer.
+   */
+  grid.addEventListener('contextmenu', function(e) {
+    var card = e.target.closest('.image-card');
+    if (card) {
+      e.preventDefault();
+      clearTimeout(longPressTimer);
+      previewCard = card;
+      card.classList.add('pressed');
+    }
+  });
+
+  // Dismiss on any click/tap after the preview was shown
   document.addEventListener('click', function(e) {
-    if (previewCard && !e.target.closest('.image-card')) {
+    if (previewCard) {
       dismissPreview();
     }
   });
