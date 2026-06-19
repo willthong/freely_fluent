@@ -26,10 +26,19 @@
           hx-target="#image-grid"
           hx-swap="innerHTML"
           hx-include="#re-search-input"
-          hx-indicator="#re-search-indicator">
-    Search
+          hx-indicator="#re-search-indicator"
+          hx-vals='js:{"selected": getCheckedIndices()}'>
+    Search in Chinese
+  </button>
+  <button type="button" class="btn-outline"
+          hx-get="/image/{{ session_id }}/research?query={{ english_word }}"
+          hx-target="#image-grid"
+          hx-swap="innerHTML"
+          hx-indicator="#en-search-indicator">
+    Search in English 🔤
   </button>
   <span id="re-search-indicator" class="htmx-indicator">Searching…</span>
+  <span id="en-search-indicator" class="htmx-indicator">Searching…</span>
 </div>
 <form id="image-form" method="post" action="/image/{{ session_id }}">
   <div id="image-grid" class="image-grid">
@@ -160,6 +169,16 @@ if (grid) {
       dismissPreview();
     }
   });
+}
+
+/** Collect currently checked image indices as a comma-separated string.
+    Called by hx-vals on re-search buttons to save selections before
+    the grid is replaced. */
+function getCheckedIndices() {
+  var checked = document.querySelectorAll('.image-checkbox:checked');
+  var indices = [];
+  checked.forEach(function(cb) { indices.push(cb.value); });
+  return indices.join(',');
 }
 </script>
 {% endblock %}

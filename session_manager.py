@@ -129,6 +129,23 @@ class SessionManager:
         if self._step_index < 2:
             self._step_index = 2
 
+    def select_image(self, image: dict[str, Any]) -> None:
+        """Add an image to the selection WITHOUT advancing the pipeline step.
+
+        Unlike ``add_image``, this does not advance to audio — it only
+        accumulates the image. Call ``advance_to_audio()`` explicitly
+        when ready to move on.
+        """
+        self._selected_images.append(image)
+
+    def advance_to_audio(self) -> None:
+        """Advance the pipeline from image to audio step."""
+        if self._step_index != 1:
+            raise RuntimeError(
+                f"advance_to_audio called on step {self.current_step}, expected image"
+            )
+        self._step_index = 2
+
     def select_audio(
         self, audio: bytes | None = None, jyutping: str | None = None
     ) -> Union["Flashcard", dict[str, Any], None]:
