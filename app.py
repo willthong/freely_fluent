@@ -724,6 +724,24 @@ def create_app(
             return Response(status_code=400)
         return RedirectResponse(url=f"/{step}/{session_id}", status_code=303)
 
+    # ── Back to step (breadcrumb navigation) ──
+
+    @app.post("/sessions/{session_id}/back-to/{target_step}")
+    def back_to_step(request: Request, session_id: str, target_step: str):
+        """Go back to a specific pipeline step (breadcrumb navigation).
+
+        Redirects to the target step page. Returns 400 if the target is
+        the same as or after the current step, or if the step name is invalid.
+        """
+        session = _sessions.get(session_id)
+        if session is None:
+            return Response(status_code=404)
+        try:
+            step = session.back_to(target_step)
+        except ValueError:
+            return Response(status_code=400)
+        return RedirectResponse(url=f"/{step}/{session_id}", status_code=303)
+
     # ── Skip ──
 
     @app.api_route("/sessions/{session_id}/skip", methods=["GET", "POST"])

@@ -204,6 +204,24 @@ class SessionManager:
 
         return new_step
 
+    def back_to(self, target_step: str) -> str:
+        """Go back until reaching *target_step*.
+
+        Calls ``go_back()`` repeatedly until ``current_step`` matches
+        *target_step*.  Raises ``ValueError`` if *target_step* is not a
+        valid step name or if it is the same as or after the current step.
+        """
+        if target_step not in self.STEPS:
+            raise ValueError(f"unknown step '{target_step}'")
+        target_idx = self.STEPS.index(target_step)
+        if target_idx >= self._step_index:
+            raise ValueError(
+                f"cannot go forward to '{target_step}' (current step: {self.current_step})"
+            )
+        while self._step_index > target_idx:
+            self.go_back()
+        return self.current_step
+
     def skip(self) -> None:
         """Discard the current word and advance to the next."""
         self._advance_to_next_word()

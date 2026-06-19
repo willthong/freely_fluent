@@ -48,7 +48,7 @@ A reversible Anki card for one English word → Entry pairing. Two directions: a
 _Avoid_: Card, flashcard pair, note
 
 **Pipeline Step**:
-One stage of card creation for the current English word — Translate, Image, or Audio. The user progresses sequentially through steps. They can skip from any step to discard the current word and move to the next.
+One stage of card creation for the current English word — Translate, Image, or Audio. The user progresses sequentially through steps. They can skip from any step to discard the current word and move to the next. They can also go back: going back to step N resets step N and all subsequent steps, preserving steps before N.
 
 **Part of Speech (POS)**:
 A grammatical label (e.g. "n", "v", "adj") that appears on a Flashcard as supplementary context. The user manually sets it per-word using a dropdown on the Translate step. CantoDict may suggest a value, but the suggestion is never auto-committed — the card only gets a POS when the user explicitly picks one. If the user never touches the dropdown, the card has no POS.
@@ -61,6 +61,7 @@ _Avoid_: Tag, label, grammatical category
 - One selected **Entry** (with an explicitly-set **Part of Speech**) + one or more images + one **Chosen Audio** → one **Flashcard**
 - A **Flashcard** is saved to SQLite and included in `.apkg` export
 - Skipping from any **Pipeline Step** discards the current word and advances to the next **English Word**
+- Going back from step N to step M (M < N) resets steps M through N. The **English Word** is always preserved. Selecting a different **Entry** on going back to Translate discards images and audio tied to the old characters.
 
 ## CI / CD pipeline
 
@@ -101,6 +102,10 @@ The deploy job runs directly on the GitHub runner (self-hosted or with the share
 - Image quality — Brave Search thumbnails are sufficient for flashcard recognition. No follow-to-original needed.
 - Confirm step removed — not needed. The Audio step is the final step before saving.
 - POS toggle removed — the global "Show part-of-speech hints" checkbox was replaced with a per-word dropdown on the Translate step. Default is no POS; each word gets POS only if the user explicitly sets it.
+- Image selection is multi-select, accumulating across standard Brave search and custom search in a single pass. No separate "confirm images" step — the user moves to Audio when ready.
+- Back navigation: going back to step N resets step N and all subsequent steps. Steps before N are preserved. Implemented in SessionManager.go_back().
+- Image downscaling at card generation time: max 800px on longest dimension, configurable as max_image_width (default 800). Only downscale, never upscale.
+- Image preview on hover/long-press shows the thumbnail at its correct aspect ratio (no crop). No need to fetch the original image — old "no follow-to-original" decision stands.
 
 ## Wiktionary Audio Research Notes
 
