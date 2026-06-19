@@ -3,5 +3,8 @@
     <input type="checkbox" name="images" value="{{ image_offset + loop.index0 }}" class="image-checkbox">
     <span class="image-checkmark"></span>
     <img src="{{ img.thumbnail_url }}" alt="" class="image-thumb">
+    <div class="image-preview-popup">
+      <img src="{{ img.thumbnail_url }}" alt="">
+    </div>
   </label>
 {% endfor %}

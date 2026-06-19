@@ -60,4 +60,33 @@
         hx-target="body"
         hx-swap="innerHTML">Skip this word</button></p>
 {% endif %}
+
+<script>
+// Mobile long-press for image preview
+var longPressTimer = null;
+var grid = document.getElementById('image-grid');
+if (grid) {
+  grid.addEventListener('touchstart', function(e) {
+    var card = e.target.closest('.image-card');
+    if (!card) return;
+    longPressTimer = setTimeout(function() {
+      card.classList.add('pressed');
+    }, 500);
+  });
+
+  grid.addEventListener('touchend', function(e) {
+    clearTimeout(longPressTimer);
+    var card = e.target.closest('.image-card');
+    if (card) {
+      setTimeout(function() {
+        card.classList.remove('pressed');
+      }, 100);
+    }
+  });
+
+  grid.addEventListener('touchmove', function(e) {
+    clearTimeout(longPressTimer);
+  });
+}
+</script>
 {% endblock %}

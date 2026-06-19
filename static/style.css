@@ -72,6 +72,7 @@ body {
 
 .step.done {
     color: inherit;
+}
 
 .step-back {
     cursor: pointer;
@@ -153,7 +154,6 @@ body {
 .word-chip-remove:disabled {
     opacity: 0.35;
     cursor: not-allowed;
-}
 }
 
 .step + .step::before {
@@ -456,6 +456,57 @@ body {
 .image-card:has(.image-checkbox:checked) {
     border-color: var(--accent);
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+/* ── Image Hover Preview ── */
+
+.image-card:hover .image-preview-popup {
+    display: flex;
+}
+
+.image-preview-popup {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+    max-width: 90vw;
+    max-height: 90vh;
+    background: var(--surface);
+    border: 2px solid var(--accent);
+    border-radius: 8px;
+    padding: 4px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.image-preview-popup img {
+    display: block;
+    max-width: 100%;
+    max-height: 85vh;
+    border-radius: 4px;
+    object-fit: contain;
+}
+
+/* Mobile: show preview overlay on long-press via .pressed class */
+.image-card.pressed .image-preview-popup {
+    display: flex;
+}
+
+/* Dim backdrop on hover/long-press */
+.image-card:hover::after,
+.image-card.pressed::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 999;
 }
 
 .image-thumb {
