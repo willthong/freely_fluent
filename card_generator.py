@@ -64,6 +64,9 @@ _MODEL = genanki.Model(
 class CardGenerator:
     """Assembles flashcards into a self-contained .apkg."""
 
+    def __init__(self, max_image_width: int = 800) -> None:
+        self._max_image_width = max_image_width
+
     def generate_apkg(
         self, flashcards: list[Flashcard], output_path: str
     ) -> int:
@@ -80,6 +83,7 @@ class CardGenerator:
             # Write all images to media folder
             image_basenames: list[str] = []
             for img_data in fc.image_data:
+                img_data = self._downscale_if_needed(img_data)
                 image_path = self._write_media(img_data, self._guess_image_ext(img_data), media_dir)
                 image_basenames.append(os.path.basename(image_path))
                 media_files.append(image_path)
@@ -98,6 +102,42 @@ class CardGenerator:
         package = genanki.Package(deck, media_files=media_files)
         package.write_to_file(output_path)
         return len(flashcards) * 2
+
+    def _downscale_if_needed(self, data: bytes) -> bytes:
+        """Downscale image if its longest side exceeds max_image_width.
+
+        Uses Pillow to resize proportionally. Returns the original data
+        if the image is already small enough, is not a recognized image
+        format, or Pillow is unavailable.
+        """
+        if len(data) < 100:
+            return data
+        try:
+            from PIL import Image
+            import io
+
+            img = Image.open(io.BytesIO(data))
+            w, h = img.size
+            max_dim = max(w, h)
+            if max_dim <= self._max_image_width:
+                return data
+
+            # Calculate new dimensions preserving aspect ratio
+            if w > h:
+                new_w = self._max_image_width
+                new_h = int(h * self._max_image_width / w)
+            else:
+                new_h = self._max_image_width
+                new_w = int(w * self._max_image_width / h)
+
+            img = img.resize((new_w, new_h), Image.LANCZOS)
+            buf = io.BytesIO()
+            # Save in the original format
+            fmt = img.format or "PNG"
+            img.save(buf, format=fmt)
+            return buf.getvalue()
+        except Exception:
+            return data
 
     @staticmethod
     def _write_media(data: bytes, ext: str, media_dir: str) -> str:
