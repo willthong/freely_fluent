@@ -124,8 +124,10 @@ function startHold(e) {
   if (!card) return;
   previewCard = card;
   longPressTimer = setTimeout(function() {
-    showPreview(card);
-  }, 500);
+    if (previewCard) {
+      showPreview(card);
+    }
+  }, 650);
 }
 
 if (grid) {
@@ -141,12 +143,13 @@ if (grid) {
   document.addEventListener('pointermove', dismissPreview);
   document.addEventListener('pointercancel', dismissPreview);
 
-  // Suppress browser context menu (Save Image dialog) and show preview immediately
+  // Suppress browser context menu (Save Image dialog).
+  // We do NOT show the preview here — it's too sensitive (contextmenu
+  // fires at ~300ms, giving false positives on quick holds). Preview
+  // is shown only by the 650ms timer in startHold().
   grid.addEventListener('contextmenu', function(e) {
-    var card = e.target.closest('.image-card');
-    if (card) {
+    if (e.target.closest('.image-card')) {
       e.preventDefault();
-      showPreview(card);
     }
   });
 
