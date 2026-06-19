@@ -127,17 +127,17 @@ function startHold(e) {
 }
 
 if (grid) {
-  // Touch events (Chrome/Safari mobile)
+  // Touch events (Chrome/Safari mobile) — on grid for start, on document for end
   grid.addEventListener('touchstart', startHold, {passive: true});
-  grid.addEventListener('touchend', dismissPreview, {passive: true});
-  grid.addEventListener('touchmove', dismissPreview, {passive: true});
-  grid.addEventListener('touchcancel', dismissPreview, {passive: true});
+  document.addEventListener('touchend', dismissPreview, {passive: true});
+  document.addEventListener('touchmove', dismissPreview, {passive: true});
+  document.addEventListener('touchcancel', dismissPreview, {passive: true});
 
   // Pointer events (Firefox mobile/desktop, Edge, modern Chrome)
   grid.addEventListener('pointerdown', startHold);
-  grid.addEventListener('pointerup', dismissPreview);
-  grid.addEventListener('pointermove', dismissPreview);
-  grid.addEventListener('pointercancel', dismissPreview);
+  document.addEventListener('pointerup', dismissPreview);
+  document.addEventListener('pointermove', dismissPreview);
+  document.addEventListener('pointercancel', dismissPreview);
 
   // Suppress browser context menu (Save Image dialog) and show preview immediately
   grid.addEventListener('contextmenu', function(e) {
