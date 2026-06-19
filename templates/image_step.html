@@ -65,61 +65,84 @@
 // Mobile long-press for image preview
 var longPressTimer = null;
 var previewCard = null;
+var overlay = null;
 var grid = document.getElementById('image-grid');
+
+function showPreview(card) {
+  clearTimeout(longPressTimer);
+  // Show the popup inside this card
+  var popup = card.querySelector('.image-preview-popup');
+  if (popup) {
+    popup.style.display = 'flex';
+  }
+  // Create backdrop overlay as a real DOM element (not ::after pseudo-element)
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'preview-backdrop';
+    var s = overlay.style;
+    s.position = 'fixed';
+    s.top = '0';
+    s.left = '0';
+    s.right = '0';
+    s.bottom = '0';
+    s.background = 'rgba(0,0,0,0.5)';
+    s.zIndex = '999';
+    document.body.appendChild(overlay);
+  }
+  previewCard = card;
+  card.classList.add('pressed');
+}
 
 function dismissPreview() {
   clearTimeout(longPressTimer);
   if (previewCard) {
+    var popup = previewCard.querySelector('.image-preview-popup');
+    if (popup) {
+      popup.style.display = 'none';
+    }
     previewCard.classList.remove('pressed');
     previewCard = null;
   }
+  if (overlay) {
+    overlay.remove();
+    overlay = null;
+  }
+}
+
+function startHold(e) {
+  var card = e.target.closest('.image-card');
+  if (!card) return;
+  previewCard = card;
+  longPressTimer = setTimeout(function() {
+    showPreview(card);
+  }, 500);
 }
 
 if (grid) {
-  // Start 500ms timer — fallback for browsers where contextmenu doesn't fire
-  grid.addEventListener('touchstart', function(e) {
-    var card = e.target.closest('.image-card');
-    if (!card) return;
-    previewCard = card;
-    longPressTimer = setTimeout(function() {
-      card.classList.add('pressed');
-    }, 500);
-  }, {passive: true});
+  // Touch events (Chrome/Safari mobile)
+  grid.addEventListener('touchstart', startHold, {passive: true});
+  grid.addEventListener('touchend', dismissPreview, {passive: true});
+  grid.addEventListener('touchmove', dismissPreview, {passive: true});
+  grid.addEventListener('touchcancel', dismissPreview, {passive: true});
 
-  // Cancel timer AND hide preview if finger moves (not a steady hold)
-  grid.addEventListener('touchmove', function(e) {
-    dismissPreview();
-  }, {passive: true});
+  // Pointer events (Firefox mobile/desktop, Edge, modern Chrome)
+  grid.addEventListener('pointerdown', startHold);
+  grid.addEventListener('pointerup', dismissPreview);
+  grid.addEventListener('pointermove', dismissPreview);
+  grid.addEventListener('pointercancel', dismissPreview);
 
-  // Dismiss preview immediately on finger lift
-  grid.addEventListener('touchend', function(e) {
-    dismissPreview();
-  }, {passive: true});
-
-  /*
-   * Suppress browser's native long-press (Save Image dialog / callout)
-   * and show preview synchronously.
-   *
-   * contextmenu fires at ~300ms while the finger is still down
-   * (Chrome, Firefox, Safari). preventDefault() here IS effective
-   * because it's called synchronously during event dispatch.
-   *
-   * We also add 'pressed' immediately so the preview shows at
-   * ~300ms instead of waiting for the 500ms timer.
-   */
+  // Suppress browser context menu (Save Image dialog) and show preview immediately
   grid.addEventListener('contextmenu', function(e) {
     var card = e.target.closest('.image-card');
     if (card) {
       e.preventDefault();
-      clearTimeout(longPressTimer);
-      previewCard = card;
-      card.classList.add('pressed');
+      showPreview(card);
     }
   });
 
-  // Dismiss on any click/tap after the preview was shown
+  // Dismiss on any click/tap
   document.addEventListener('click', function(e) {
-    if (previewCard) {
+    if (previewCard || longPressTimer) {
       dismissPreview();
     }
   });
