@@ -65,17 +65,21 @@
 // Mobile long-press for image preview
 var longPressTimer = null;
 var previewCard = null;
+var previewPopup = null;
 var overlay = null;
 var grid = document.getElementById('image-grid');
 
 function showPreview(card) {
   clearTimeout(longPressTimer);
-  // Show the popup inside this card
-  var popup = card.querySelector('.image-preview-popup');
-  if (popup) {
-    popup.style.display = 'flex';
+  // Move the popup to document.body so it escapes .image-card's stacking
+  // context (created by position:relative + overflow:hidden). Otherwise it
+  // renders behind the backdrop overlay.
+  previewPopup = card.querySelector('.image-preview-popup');
+  if (previewPopup) {
+    document.body.appendChild(previewPopup);
+    previewPopup.style.display = 'flex';
   }
-  // Create backdrop overlay as a real DOM element (not ::after pseudo-element)
+  // Create backdrop overlay as a real DOM element
   if (!overlay) {
     overlay = document.createElement('div');
     overlay.id = 'preview-backdrop';
@@ -95,11 +99,15 @@ function showPreview(card) {
 
 function dismissPreview() {
   clearTimeout(longPressTimer);
-  if (previewCard) {
-    var popup = previewCard.querySelector('.image-preview-popup');
-    if (popup) {
-      popup.style.display = 'none';
+  if (previewPopup) {
+    previewPopup.style.display = 'none';
+    // Move popup back to its original card
+    if (previewCard) {
+      previewCard.appendChild(previewPopup);
     }
+    previewPopup = null;
+  }
+  if (previewCard) {
     previewCard.classList.remove('pressed');
     previewCard = null;
   }
