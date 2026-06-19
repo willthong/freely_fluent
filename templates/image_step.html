@@ -71,13 +71,15 @@ var grid = document.getElementById('image-grid');
 
 function showPreview(card) {
   clearTimeout(longPressTimer);
-  // Move the popup to document.body so it escapes .image-card's stacking
-  // context (created by position:relative + overflow:hidden). Otherwise it
-  // renders behind the backdrop overlay.
-  previewPopup = card.querySelector('.image-preview-popup');
-  if (previewPopup) {
-    document.body.appendChild(previewPopup);
-    previewPopup.style.display = 'flex';
+  // Guard: contextmenu may have already called us for this card.
+  // Don't overwrite previewPopup with a second querySelector that
+  // returns null (the popup was already moved to document.body).
+  if (!previewPopup) {
+    previewPopup = card.querySelector('.image-preview-popup');
+    if (previewPopup) {
+      document.body.appendChild(previewPopup);
+      previewPopup.style.display = 'flex';
+    }
   }
   // Create backdrop overlay as a real DOM element
   if (!overlay) {
