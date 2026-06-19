@@ -122,6 +122,7 @@ function dismissPreview() {
 function startHold(e) {
   var card = e.target.closest('.image-card');
   if (!card) return;
+  clearTimeout(longPressTimer);  // cancel any prior timer (startHold may be called twice: touchstart + pointerdown)
   previewCard = card;
   longPressTimer = setTimeout(function() {
     if (previewCard) {
