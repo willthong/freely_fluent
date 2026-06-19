@@ -86,9 +86,9 @@ if (grid) {
     }, 500);
   }, {passive: true});
 
-  // Cancel timer if finger moves (not a steady hold)
+  // Cancel timer AND hide preview if finger moves (not a steady hold)
   grid.addEventListener('touchmove', function(e) {
-    clearTimeout(longPressTimer);
+    dismissPreview();
   }, {passive: true});
 
   // Dismiss preview immediately on finger lift

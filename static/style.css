@@ -464,8 +464,38 @@ body {
 
 /* ── Image Hover Preview ── */
 
-.image-card:hover .image-preview-popup {
+/* Desktop: hover (mice/trackpads) — never on touch devices */
+@media (hover: hover) {
+    .image-card:hover .image-preview-popup {
+        display: flex;
+    }
+
+    .image-card:hover::after {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 999;
+    }
+}
+
+/* All devices: long-press preview (via .pressed class) */
+.image-card.pressed .image-preview-popup {
     display: flex;
+}
+
+.image-card.pressed::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 999;
 }
 
 .image-preview-popup {
@@ -498,23 +528,7 @@ body {
     user-select: none;
 }
 
-/* Mobile: show preview overlay on long-press via .pressed class */
-.image-card.pressed .image-preview-popup {
-    display: flex;
-}
 
-/* Dim backdrop on hover/long-press */
-.image-card:hover::after,
-.image-card.pressed::after {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0,0,0,0.5);
-    z-index: 999;
-}
 
 .image-thumb {
     display: block;
