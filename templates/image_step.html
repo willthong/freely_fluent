@@ -64,35 +64,59 @@
 <script>
 // Mobile long-press for image preview
 var longPressTimer = null;
+var previewCard = null;
 var grid = document.getElementById('image-grid');
+
+function dismissPreview() {
+  clearTimeout(longPressTimer);
+  if (previewCard) {
+    previewCard.classList.remove('pressed');
+    previewCard = null;
+  }
+}
+
 if (grid) {
-  /* Suppress browser's native long-press (Save Image / context menu) */
   grid.addEventListener('touchstart', function(e) {
     var card = e.target.closest('.image-card');
     if (!card) return;
+    previewCard = card;
+    var touchEvent = e;
     longPressTimer = setTimeout(function() {
+      /*
+       * Suppress the browser's native long-press behavior
+       * (Save Image dialog on Android, callout on iOS).
+       * With {passive: false}, preventDefault() is honored.
+       * We call it here (not sync in the handler) so scrolling
+       * on a quick touch is unaffected.
+       */
+      try { touchEvent.preventDefault(); } catch(_) {}
       card.classList.add('pressed');
     }, 500);
-  }, {passive: true});
+  }, {passive: false});
 
   grid.addEventListener('touchend', function(e) {
     clearTimeout(longPressTimer);
     var card = e.target.closest('.image-card');
     if (card) {
-      setTimeout(function() {
-        card.classList.remove('pressed');
-      }, 100);
+      /*
+       * If the long-press timer already fired, card has 'pressed'.
+       * Remove it immediately on finger lift — no delay.
+       * If timer hadn't fired yet (quick tap), dismiss is a no-op
+       * because pressed was never added.
+       */
+      card.classList.remove('pressed');
     }
+    previewCard = null;
   }, {passive: true});
 
   grid.addEventListener('touchmove', function(e) {
     clearTimeout(longPressTimer);
   }, {passive: true});
 
-  /* Prevent the context menu (Save Image / Copy Image) on long-press */
-  grid.addEventListener('contextmenu', function(e) {
-    if (e.target.closest('.image-card')) {
-      e.preventDefault();
+  /* Also dismiss on any click/tap outside the grid or on a non-pressed card */
+  document.addEventListener('click', function(e) {
+    if (previewCard && !e.target.closest('.image-card')) {
+      dismissPreview();
     }
   });
 }

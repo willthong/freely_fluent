@@ -2,9 +2,9 @@
   <label class="image-card">
     <input type="checkbox" name="images" value="{{ image_offset + loop.index0 }}" class="image-checkbox">
     <span class="image-checkmark"></span>
-    <img src="{{ img.thumbnail_url }}" alt="" class="image-thumb">
+    <img src="{{ img.thumbnail_url }}" alt="" class="image-thumb" draggable="false">
     <div class="image-preview-popup">
-      <img src="{{ img.thumbnail_url }}" alt="">
+      <img src="{{ img.thumbnail_url }}" alt="" draggable="false">
     </div>
   </label>
 {% endfor %}
