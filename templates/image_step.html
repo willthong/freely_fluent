@@ -26,7 +26,8 @@
           hx-target="#image-grid"
           hx-swap="innerHTML"
           hx-include="#re-search-input"
-          hx-indicator="#re-search-indicator">
+          hx-indicator="#re-search-indicator"
+          hx-vals='js:{"selected": getCheckedIndices()}'>
     Search in Chinese
   </button>
   <button type="button" class="btn-outline"
@@ -168,6 +169,16 @@ if (grid) {
       dismissPreview();
     }
   });
+}
+
+/** Collect currently checked image indices as a comma-separated string.
+    Called by hx-vals on re-search buttons to save selections before
+    the grid is replaced. */
+function getCheckedIndices() {
+  var checked = document.querySelectorAll('.image-checkbox:checked');
+  var indices = [];
+  checked.forEach(function(cb) { indices.push(cb.value); });
+  return indices.join(',');
 }
 </script>
 {% endblock %}

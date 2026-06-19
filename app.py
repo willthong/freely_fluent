@@ -448,6 +448,26 @@ def create_app(
         session.add_image(results[req.result_index])
         return {"current_step": session.current_step, "current_word": session.current_word}
 
+    @app.post("/sessions/{session_id}/images/select-multiple")
+    def select_multiple_images(session_id: str, indices: list[int] = Form(default=[])):
+        """Save multiple images without advancing the pipeline step.
+
+        Accepts a list of result indices, adds them to the session's
+        selected_images, but does NOT advance to audio. Used by the
+        re-search flow to preserve selections when switching searches.
+        """
+        session = _sessions.get(session_id)
+        if session is None:
+            return Response(status_code=404)
+        characters = session.selected_characters
+        if not characters:
+            return Response(status_code=400)
+        results = session.all_image_results or _get_orchestrator().search_images(session)
+        for idx in indices:
+            if 0 <= idx < len(results):
+                session.select_image(results[idx])
+        return {"selected_images": len(session.selected_images)}
+
     # ── Images (load more) ──
 
     @app.get("/sessions/{session_id}/images/load-more")
@@ -606,12 +626,16 @@ def create_app(
     # ── Image re-search (HTMX) ──
 
     @app.get("/image/{session_id}/research")
-    def image_re_search(request: Request, session_id: str, query: str = ""):
+    def image_re_search(request: Request, session_id: str, query: str = "", selected: str = ""):
         """HTMX endpoint: re-search images with a custom query.
 
         Returns ``_image_cards.html`` with fresh results from the custom
         search query. The orchestorator uses the provided query string
         instead of the session's selected_characters.
+
+        The *selected* parameter accepts a comma-separated list of index
+        strings from the previous result set; they are saved (without
+        advancing) before the new search replaces the grid.
         """
         session = _sessions.get(session_id)
         if session is None:
@@ -621,6 +645,20 @@ def create_app(
             return Response(status_code=303, headers={"Location": f"/translate/{session_id}"})
         if session.current_step != "image":
             return Response(status_code=303, headers={"Location": f"/translate/{session_id}"})
+
+        # Save any currently-selected images before replacing the grid
+        if selected:
+            results_cache = session.all_image_results
+            for idx_str in selected.split(","):
+                idx_str = idx_str.strip()
+                if idx_str:
+                    try:
+                        idx = int(idx_str)
+                        if results_cache and 0 <= idx < len(results_cache):
+                            session.select_image(results_cache[idx])
+                    except (ValueError, IndexError):
+                        pass
+
         # Fall back to character-based search if query is empty/whitespace
         search_query = query.strip() if query.strip() else characters
         results = _get_orchestrator().search_images_with_query(session, search_query)
