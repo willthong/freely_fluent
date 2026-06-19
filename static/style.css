@@ -451,6 +451,9 @@ body {
     cursor: pointer;
     aspect-ratio: 1 / 1;
     transition: border-color 0.15s, box-shadow 0.15s;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .image-card:has(.image-checkbox:checked) {
@@ -489,6 +492,9 @@ body {
     max-height: 85vh;
     border-radius: 4px;
     object-fit: contain;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 /* Mobile: show preview overlay on long-press via .pressed class */

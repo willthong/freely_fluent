@@ -66,13 +66,14 @@
 var longPressTimer = null;
 var grid = document.getElementById('image-grid');
 if (grid) {
+  /* Suppress browser's native long-press (Save Image / context menu) */
   grid.addEventListener('touchstart', function(e) {
     var card = e.target.closest('.image-card');
     if (!card) return;
     longPressTimer = setTimeout(function() {
       card.classList.add('pressed');
     }, 500);
-  });
+  }, {passive: true});
 
   grid.addEventListener('touchend', function(e) {
     clearTimeout(longPressTimer);
@@ -82,10 +83,17 @@ if (grid) {
         card.classList.remove('pressed');
       }, 100);
     }
-  });
+  }, {passive: true});
 
   grid.addEventListener('touchmove', function(e) {
     clearTimeout(longPressTimer);
+  }, {passive: true});
+
+  /* Prevent the context menu (Save Image / Copy Image) on long-press */
+  grid.addEventListener('contextmenu', function(e) {
+    if (e.target.closest('.image-card')) {
+      e.preventDefault();
+    }
   });
 }
 </script>
