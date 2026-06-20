@@ -421,6 +421,40 @@ body {
     box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
+/* ── Jyutping Editor on Translate Step ── */
+
+.jyutping-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin: 0.5rem 0 0.75rem;
+}
+
+.jyutping-edit-input {
+    padding: 0.35rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--surface);
+    color: var(--text-bright);
+    font-family: "Courier New", Courier, monospace;
+    font-size: 1rem;
+    min-width: 180px;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.jyutping-edit-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.jyutping-edit-input::placeholder {
+    color: var(--text);
+    font-style: italic;
+    opacity: 0.5;
+}
+
 /* ── Image Step ── */
 
 .image-grid {
