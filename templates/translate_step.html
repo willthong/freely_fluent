@@ -45,6 +45,14 @@
     </button>
   </p>
   {% endif %}
+  <p class="cantowords-link">
+    <a href="https://cantowords.com/zidin/wan/?fp=1&q={{ english_word|urlencode }}"
+       target="_blank"
+       rel="noopener noreferrer"
+       class="btn-outline">
+      Search for translation on CantoWords (external)
+    </a>
+  </p>
   <div id="pos-dropdown-area">
     <p class="pos-placeholder">Select a translation above to set part-of-speech.</p>
   </div>
@@ -56,6 +64,14 @@
         hx-swap="innerHTML">Skip this word</button></p>
 {% else %}
 <p>No translation entries found for "{{ english_word }}".</p>
+<p class="cantowords-link">
+  <a href="https://cantowords.com/zidin/wan/?fp=1&q={{ english_word|urlencode }}"
+     target="_blank"
+     rel="noopener noreferrer"
+     class="btn-outline">
+    Search for translation on CantoWords (external)
+  </a>
+</p>
 <p><button type="button" class="btn-skip"
         hx-get="/sessions/{{ session_id }}/skip"
         hx-target="body"

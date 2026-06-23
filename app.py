@@ -341,6 +341,25 @@ def create_app(
                 '<span class="pos-cleared" id="pos-confirmation"></span>'
             )
 
+    @app.post("/sessions/{session_id}/jyutping")
+    def set_jyutping(session_id: str, jyutping: str = Form(default="")):
+        """HTMX: store the manually-edited Jyutping for the current entry.
+
+        Returns a checkmark (✓) confirmation snippet.
+        """
+        session = _sessions.get(session_id)
+        if session is None:
+            return Response(status_code=303, headers={"Location": "/"})
+        session.set_entry_jyutping(jyutping.strip())
+        if jyutping.strip():
+            return HTMLResponse(
+                '<span class="pos-confirmed" id="jyutping-confirmation">&#10003;</span>'
+            )
+        else:
+            return HTMLResponse(
+                '<span class="pos-cleared" id="jyutping-confirmation"></span>'
+            )
+
     @app.post("/translate/{session_id}/select")
     def select_translation(session_id: str, chinese: str = Form(default="")):
         """Advance from translate to image step after entry + POS selection."""

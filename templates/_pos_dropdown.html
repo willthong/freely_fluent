@@ -28,6 +28,19 @@
            hx-swap="innerHTML"
            placeholder="Type custom POS…">
   </div>
+
+  <div class="jyutping-controls">
+    <label class="pos-label">Jyutping:</label>
+    <input type="text" name="jyutping" id="jyutping-input"
+           class="jyutping-edit-input"
+           value="{{ selected_entry.jyutping }}"
+           hx-post="/sessions/{{ session_id }}/jyutping"
+           hx-trigger="blur, keyup[key=='Enter']"
+           hx-target="#jyutping-confirmation"
+           hx-swap="innerHTML"
+           placeholder="e.g. nei5 hou2">
+    <span id="jyutping-confirmation"></span>
+  </div>
 </div>
 
 <script>
@@ -52,4 +65,3 @@
   });
 })();
 </script>
-</div>

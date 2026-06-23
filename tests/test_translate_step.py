@@ -36,6 +36,7 @@ def _make_cantodict_fixture(entries: list[tuple[str, str, str]] | None = None) -
             entry_type INTEGER NOT NULL,
             cantodict_id INTEGER NOT NULL,
             definition TEXT,
+            views INTEGER DEFAULT 0,
             jyutping TEXT
         )
     """)
@@ -273,6 +274,7 @@ def _make_cantodict_fixture_many_entries(count: int = 15) -> str:
             entry_type INTEGER NOT NULL,
             cantodict_id INTEGER NOT NULL,
             definition TEXT,
+            views INTEGER DEFAULT 0,
             jyutping TEXT
         )
     """)
@@ -401,3 +403,31 @@ def test_translate_load_more_returns_404_for_unknown_session():
     client = _make_app_with_many_entries(15)
     r = client.get("/translate/nonexistent/load-more")
     assert r.status_code == 404
+
+
+def test_translate_page_has_cantowords_external_link():
+    """The translate step page shows an external link to CantoWords
+    for the current English word, placed next to the load-more button.
+
+    Feature: User can search for translations on CantoWords website
+    for additional context.
+    """
+    client = _make_app()
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+
+    r = client.get(f"/translate/{session_id}")
+    assert r.status_code == 200
+    body = r.text
+
+    # The external link to CantoWords should be present
+    assert "CantoWords" in body or "cantowords.com" in body
+    # The link should contain the English word being searched
+    assert "hello" in body
+    # The link URL should point to CantoWords with the query parameter
+    assert "cantowords.com" in body
+    assert "q=hello" in body or "q=hello" in body.lower()
+    # The link should open in a new tab (external site)
+    assert 'target="_blank"' in body or 'rel="noopener"' in body or 'rel="noreferrer"' in body
+    # The link text should be descriptive
+    assert "external" in body.lower()

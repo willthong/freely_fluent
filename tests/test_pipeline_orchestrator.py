@@ -77,6 +77,7 @@ def test_full_pipeline_orchestrate_one_word():
             entry_type INTEGER NOT NULL,
             cantodict_id INTEGER NOT NULL,
             definition TEXT,
+            views INTEGER DEFAULT 0,
             jyutping TEXT
         )
     """)
@@ -170,6 +171,7 @@ def test_two_word_pipeline_advances_then_completes():
             entry_type INTEGER NOT NULL,
             cantodict_id INTEGER NOT NULL,
             definition TEXT,
+            views INTEGER DEFAULT 0,
             jyutping TEXT
         )
     """)
@@ -229,10 +231,15 @@ def test_two_word_pipeline_advances_then_completes():
     assert cards[1].english_word == "goodbye"
 
 
-def test_lookup_translations_sorted_by_chinese_length_ascending():
-    """lookup_translations returns entries sorted by ascending chinese character length.
+def test_lookup_translations_sorted_by_standalone_then_char_len_then_views():
+    """lookup_translations sorts entries by:
+    1. Standalone match (exact word in definition first, substring-only last)
+    2. Chinese character length (ascending — shorter/simpler first)
+    3. Views (descending — higher views = more popular first)
+    4. Match position (ascending — earlier in definition = more likely primary meaning)
 
-    This improves UX by showing shorter/simpler translations first.
+    This shows primary characters first, then popular entries, with
+    match position as a fine-tune tiebreaker.
     """
     import tempfile
     import sqlite3
@@ -243,12 +250,26 @@ def test_lookup_translations_sorted_by_chinese_length_ascending():
     from wiktionary_audio import WiktionaryAudio
     from audio_service import AudioService
 
-    # Fixture: three entries for the same English word with varying chinese length
-    # All entries have "love" in the definition so the lookup finds all three
+    # Fixture: entries that test all 4 sort criteria for the word "love"
+    #
+    #   愛      — 1 char, views=2000, match_pos=0
+    #   情人    — 2 chars, views=3000, match_pos=11
+    #   心愛    — 2 chars, views=1000, match_pos=14
+    #   女朋友  — 3 chars, views=1000, match_pos=11
+    #   手套    — substring-only ("glove"), not standalone
+    #
+    # Expected order:
+    #   1. 愛   — 1 char (shortest), then views=2000
+    #   2. 情人 — 2 chars, views=3000 > 心愛's 1000
+    #   3. 心愛 — 2 chars, views=1000 < 情人's 3000
+    #   4. 女朋友 — 3 chars (longest)
+    #   5. 手套 — substring-only (last)
     entries = [
-        ("我愛你", "ngo5 oi3 nei5", "love (longer) — 3 chars"),
-        ("你好", "nei5 hou2", "love (medium) — 2 chars"),
-        ("好", "hou2", "love (short) — 1 char"),
+        ("心愛", "sam1 oi3", "beloved; dear; love", 1000),
+        ("愛", "oi3", "love; affection", 2000),
+        ("女朋友", "neoi5 pang4 jau5", "girlfriend; love; lass", 1000),
+        ("情人", "cing4 jan4", "sweetheart; love; paramour", 3000),
+        ("手套", "sau2 tou3", "glove (hand wear)", 5000),
     ]
     cantodict_path = tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False)
     conn = sqlite3.connect(cantodict_path.name)
@@ -259,14 +280,15 @@ def test_lookup_translations_sorted_by_chinese_length_ascending():
             entry_type INTEGER NOT NULL,
             cantodict_id INTEGER NOT NULL,
             definition TEXT,
+            views INTEGER DEFAULT 0,
             jyutping TEXT
         )
     """)
-    for i, (chinese, jyutping, definition) in enumerate(entries, start=100):
+    for i, (chinese, jyutping, definition, views) in enumerate(entries, start=100):
         conn.execute(
-            "INSERT INTO Entries (chinese, entry_type, cantodict_id, definition, jyutping) "
-            "VALUES (?, 2, ?, ?, ?)",
-            (chinese, i, definition, jyutping),
+            "INSERT INTO Entries (chinese, entry_type, cantodict_id, definition, jyutping, views) "
+            "VALUES (?, 2, ?, ?, ?, ?)",
+            (chinese, i, definition, jyutping, views),
         )
     conn.commit()
     conn.close()
@@ -289,12 +311,22 @@ def test_lookup_translations_sorted_by_chinese_length_ascending():
     # Act
     results = orch.lookup_translations(session, session.current_word)
 
-    # Assert: sorted by chinese length ascending (shortest first)
-    assert len(results) == 3
-    assert results[0]["chinese"] == "好"       # 1 char
-    assert results[1]["chinese"] == "你好"     # 2 chars
-    assert results[2]["chinese"] == "我愛你"   # 3 chars
-    # Verify jyutping is preserved correctly
-    assert results[0]["jyutping"] == "hou2"
-    assert results[1]["jyutping"] == "nei5 hou2"
-    assert results[2]["jyutping"] == "ngo5 oi3 nei5" 
+    # Assert: sorted by the 4 criteria
+    assert len(results) == 5
+
+    # --- Standalone matches (0-3) come before substring-only (4) ---
+    # Entry 4: "手套" ("glove") is a substring-only match (no standalone "love")
+    assert results[4]["chinese"] == "手套"
+
+    # --- Entry 0: shortest chinese (1 char) ---
+    assert results[0]["chinese"] == "愛"
+
+    # --- Entries 1-2: 2 chars, higher views first ---
+    # "情人" has 3000 views > "心愛" has 1000 views
+    assert results[1]["chinese"] == "情人"
+    assert results[2]["chinese"] == "心愛"
+
+    # --- Entry 3: longest chinese (3 chars) ---
+    assert results[3]["chinese"] == "女朋友"
+
+    # Match position is a fine-tune tiebreaker (not tested here explicitly) 

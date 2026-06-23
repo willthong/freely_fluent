@@ -104,6 +104,16 @@ class SessionManager:
         if self._selected_entry is not None:
             self._selected_entry["part_of_speech"] = pos
 
+    def set_entry_jyutping(self, jyutping: str) -> None:
+        """Override the Jyutping romanization for the currently selected entry.
+
+        Cleans the input via ``clean_jyutping`` so only valid a-zA-Z characters
+        survive in the text portion while tone numbers and whitespace are preserved.
+        If no entry has been selected yet this is a no-op.
+        """
+        if self._selected_entry is not None:
+            self._selected_entry["jyutping"] = clean_jyutping(jyutping)
+
     @property
     def entry_pos_suggestion(self) -> str:
         """The POS suggestion from CantoDict for the selected entry.
