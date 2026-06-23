@@ -36,6 +36,7 @@ def _make_cantodict_fixture(entries: list[tuple[str, str, str]] | None = None) -
             entry_type INTEGER NOT NULL,
             cantodict_id INTEGER NOT NULL,
             definition TEXT,
+            views INTEGER DEFAULT 0,
             jyutping TEXT
         )
     """)
@@ -273,6 +274,7 @@ def _make_cantodict_fixture_many_entries(count: int = 15) -> str:
             entry_type INTEGER NOT NULL,
             cantodict_id INTEGER NOT NULL,
             definition TEXT,
+            views INTEGER DEFAULT 0,
             jyutping TEXT
         )
     """)

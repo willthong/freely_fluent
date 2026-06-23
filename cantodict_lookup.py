@@ -63,7 +63,7 @@ class CantoneseDictionary:
         """
         pattern = f"%{english_word}%"
         rows = self._conn.execute(
-            "SELECT chinese, jyutping, definition FROM Entries WHERE definition LIKE ?",
+            "SELECT chinese, jyutping, definition, views FROM Entries WHERE definition LIKE ?",
             (pattern,),
         ).fetchall()
         entries = [
@@ -71,6 +71,7 @@ class CantoneseDictionary:
                 "chinese": row["chinese"],
                 "jyutping": row["jyutping"],
                 "definition": row["definition"],
+                "views": row["views"] or 0,
                 "_cantodict_pos": extract_pos(row["definition"]),
                 "part_of_speech": "",
             }

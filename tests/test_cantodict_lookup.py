@@ -19,6 +19,7 @@ def _make_fixture_db() -> str:
             entry_type INTEGER NOT NULL,
             cantodict_id INTEGER NOT NULL,
             definition TEXT,
+            views INTEGER DEFAULT 0,
             jyutping TEXT
         )
     """)
@@ -63,6 +64,7 @@ def _make_fixture_db_pos() -> str:
             entry_type INTEGER NOT NULL,
             cantodict_id INTEGER NOT NULL,
             definition TEXT,
+            views INTEGER DEFAULT 0,
             jyutping TEXT
         )
     """)
@@ -193,6 +195,7 @@ def _make_fixture_db_exact_vs_substring() -> str:
             entry_type INTEGER NOT NULL,
             cantodict_id INTEGER NOT NULL,
             definition TEXT,
+            views INTEGER DEFAULT 0,
             jyutping TEXT
         )
     """)
@@ -243,3 +246,37 @@ def test_extract_pos_parses_bracket_format():
     assert extract_pos("[1] [conj] and; also") == "conj"
     assert extract_pos("[1] [pron] I; me") == "pron"
     assert extract_pos("[1] [prep] in; at") == "prep"
+
+
+def test_lookup_returns_views():
+    """lookup() returns entries with a views key containing the view count.
+
+    Views are used by PipelineOrchestrator to sort popular translations first.
+    """
+    import tempfile, sqlite3
+    tmp = tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False)
+    conn = sqlite3.connect(tmp.name)
+    conn.execute("""
+        CREATE TABLE Entries (
+            entry_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chinese TEXT,
+            entry_type INTEGER NOT NULL,
+            cantodict_id INTEGER NOT NULL,
+            definition TEXT,
+            views INTEGER DEFAULT 0,
+            jyutping TEXT
+        )
+    """)
+    conn.execute(
+        "INSERT INTO Entries (chinese, entry_type, cantodict_id, definition, jyutping, views) "
+        "VALUES (?, 2, ?, ?, ?, ?)",
+        ("你好", 100, "hello; hi", "nei5 hou2", 8087),
+    )
+    conn.commit()
+    conn.close()
+
+    dic = CantoneseDictionary(tmp.name)
+    entries = dic.lookup("hello")
+    assert len(entries) == 1
+    assert "views" in entries[0]
+    assert entries[0]["views"] == 8087

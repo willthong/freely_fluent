@@ -30,6 +30,7 @@ def _make_cantodict_db(definition: str = "n. hello; hi") -> str:
             entry_type INTEGER NOT NULL,
             cantodict_id INTEGER NOT NULL,
             definition TEXT,
+            views INTEGER DEFAULT 0,
             jyutping TEXT
         )
     """)

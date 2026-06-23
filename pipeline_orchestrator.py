@@ -43,11 +43,36 @@ class PipelineOrchestrator:
     ) -> list[dict[str, Any]]:
         """Look up Cantonese entries for *word* via CantoDict.
 
-        Results are sorted by ascending chinese character length so that
-        shorter/simpler translations appear first.
+        Results are sorted by:
+        1. Standalone match (exact word in definition first, substring-only last)
+        2. Views (descending — higher views = more popular first)
+        3. Chinese character length (ascending — shorter first)
+        4. Definition length (ascending — shorter definitions first)
+
+        This shows the most relevant + popular + concise translations at the top.
         """
+        import re
+
         entries = self._cantodict.lookup(word)
-        entries.sort(key=lambda e: len(e["chinese"]))
+
+        # Determine standalone match for each entry
+        escaped = re.escape(word)
+        boundary_re = re.compile(
+            r"(?:^|[\s\[\]\(\)\{\}.,;:!?\"'/\\-])"
+            + escaped
+            + r"(?:$|[\s\[\]\(\)\{\}.,;:!?\"'/\\-])",
+            re.IGNORECASE,
+        )
+
+        def sort_key(e):
+            definition = e.get("definition", "")
+            standalone = 0 if boundary_re.search(definition) else 1
+            views = -(e.get("views", 0) or 0)  # descending
+            char_len = len(e.get("chinese", ""))
+            def_len = len(definition)
+            return (standalone, views, char_len, def_len)
+
+        entries.sort(key=sort_key)
         return entries
 
     def search_images(

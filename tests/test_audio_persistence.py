@@ -107,6 +107,7 @@ def test_confirm_reuses_played_audio_without_redownload():
             entry_type INTEGER NOT NULL,
             cantodict_id INTEGER NOT NULL,
             definition TEXT,
+            views INTEGER DEFAULT 0,
             jyutping TEXT
         )
     """)
