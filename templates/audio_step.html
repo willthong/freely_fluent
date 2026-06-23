@@ -183,7 +183,7 @@ function addSyllable() {
   var p = editor.querySelector('p');
   if (!p) { return; }
   var html = '<span class="jyutping-syllable">' +
-    '<span class="jyutping-text" contenteditable="true" oninput="validateJyutpingInput(this)"></span>' +
+    '<span class="jyutping-text" contenteditable="true" oninput="validateJyutpingInput(this)">...</span>' +
     '<select class="tone-select">';
   for (var t = 1; t <= 6; t++) {
     html += '<option value="' + t + '">' + t + '</option>';

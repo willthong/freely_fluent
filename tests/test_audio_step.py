@@ -1027,3 +1027,58 @@ def test_audio_step_confirm_strips_non_alpha_from_jyutping():
     assert card.jyutping == "nei5 hou2"
     assert card.english_word == "hello"
     assert card.chinese_characters == "你好"
+
+
+def test_audio_step_add_syllable_has_placeholder_text():
+    """The addSyllable() JavaScript function creates a new syllable with
+    placeholder text in the contenteditable span, so the user can immediately
+    see where to type.
+
+    Feature: When "Add syllable" is clicked, the new syllable's text span
+    contains visible placeholder text (e.g., "...") that the user can click
+    into and edit.
+    """
+    cantodict_path = _make_cantodict_fixture()
+    card_db_path = _make_card_store_fixture()
+
+    wiktionary_client = _make_wiktionary_client_char("你")
+    brave_client = _make_brave_client()
+    audio_download_client = _make_audio_download_client()
+
+    cantodict = CantoneseDictionary(cantodict_path)
+    card_store = CardStore(card_db_path)
+    card_generator = CardGenerator()
+
+    app = create_app(
+        cantodict=cantodict,
+        card_store=card_store,
+        card_generator=card_generator,
+        wiktionary_client=wiktionary_client,
+        brave_client=brave_client,
+        audio_download_client=audio_download_client,
+        api_key="test-key",
+    )
+    client = TestClient(app, raise_server_exceptions=False)
+
+    r = client.post("/sessions", json={"words": ["hello"]})
+    session_id = r.json()["session_id"]
+
+    client.get(f"/sessions/{session_id}/translate")
+    client.post(f"/sessions/{session_id}/entries", json={"chinese": "你好"})
+    client.post(f"/sessions/{session_id}/images", json={"result_index": 0})
+
+    r = client.get(f"/audio/{session_id}")
+    assert r.status_code == 200
+    body = r.text
+
+    # The addSyllable() function should create a contenteditable span with
+    # placeholder text so the new syllable is immediately editable.
+    assert "addSyllable" in body
+    # Check that the addSyllable function builds a span containing placeholder text
+    # (e.g., "...") in the contenteditable span
+    assert "jyutping-text" in body
+    # The placeholder text should appear in the rendered JS function
+    assert "..." in body
+    # More specifically, the contenteditable span in the addSyllable function
+    # should have placeholder text between the opening and closing span tags
+    assert 'contenteditable="true" oninput="validateJyutpingInput(this)">...</span>' in body
