@@ -45,11 +45,13 @@ class PipelineOrchestrator:
 
         Results are sorted by:
         1. Standalone match (exact word in definition first, substring-only last)
-        2. Views (descending — higher views = more popular first)
-        3. Chinese character length (ascending — shorter first)
-        4. Definition length (ascending — shorter definitions first)
+        2. Match position (ascending — earlier in definition = more likely primary meaning)
+        3. Views (descending — higher views = more popular first)
+        4. Chinese character length (ascending — shorter first)
 
-        This shows the most relevant + popular + concise translations at the top.
+        This shows the most relevant translations at the top, prioritising entries
+        where the search term appears earliest in the definition (i.e., is the
+        primary listed sense), then by popularity, then by simplicity.
         """
         import re
 
@@ -67,10 +69,11 @@ class PipelineOrchestrator:
         def sort_key(e):
             definition = e.get("definition", "")
             standalone = 0 if boundary_re.search(definition) else 1
+            match = boundary_re.search(definition)
+            match_pos = match.start() if match else 999999
             views = -(e.get("views", 0) or 0)  # descending
             char_len = len(e.get("chinese", ""))
-            def_len = len(definition)
-            return (standalone, views, char_len, def_len)
+            return (standalone, match_pos, views, char_len)
 
         entries.sort(key=sort_key)
         return entries

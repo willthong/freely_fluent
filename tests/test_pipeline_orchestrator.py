@@ -250,18 +250,25 @@ def test_lookup_translations_sorted_by_standalone_then_views_then_length():
     from audio_service import AudioService
 
     # Fixture: entries that test all 4 sort criteria for the word "love"
-    # 
+    #
+    # Match positions for standalone "love":
+    #   愛      → pos 0  ("love; affection")
+    #   情人    → pos 11 ("...eart; love; paramour")
+    #   女朋友  → pos 11 ("...iend; love; lass")
+    #   心愛    → pos 14 ("...dear; love")
+    #   手套    → no standalone match ("glove" only substring)
+    #
     # Expected sort order:
-    #   1. 情人 — standalone, 8000 views, 2 chars, def_len=30
-    #   2. 愛   — standalone, 2000 views, 1 char, def_len=14
-    #   3. 心愛 — standalone, 2000 views, 2 chars, def_len=18
-    #   4. 女朋友 — standalone, 2000 views, 3 chars, def_len=23
+    #   1. 愛   — standalone, pos 0, views=2000
+    #   2. 情人 — standalone, pos 11, views=3000 (tie-break: higher views)
+    #   3. 女朋友 — standalone, pos 11, views=1000 (same pos, lower views)
+    #   4. 心愛 — standalone, pos 14, views=1000
     #   5. 手套 — substring-only ("glove"), 5000 views
     entries = [
-        ("女朋友", "neoi5 pang4 jau5", "girlfriend; love; lass", 2000),
-        ("心愛", "sam1 oi3", "beloved; dear; love", 2000),
+        ("心愛", "sam1 oi3", "beloved; dear; love", 1000),
         ("愛", "oi3", "love; affection", 2000),
-        ("情人", "cing4 jan4", "sweetheart; love; paramour", 8000),
+        ("女朋友", "neoi5 pang4 jau5", "girlfriend; love; lass", 1000),
+        ("情人", "cing4 jan4", "sweetheart; love; paramour", 3000),
         ("手套", "sau2 tou3", "glove (hand wear)", 5000),
     ]
     cantodict_path = tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False)
@@ -311,15 +318,17 @@ def test_lookup_translations_sorted_by_standalone_then_views_then_length():
     # Entry 4: "手套" ("glove") is a substring-only match (no standalone "love")
     assert results[4]["chinese"] == "手套"
 
-    # --- Entry 0: standalone with highest views ---
-    # "情人" has 8000 views, all others have 2000
-    assert results[0]["chinese"] == "情人"
+    # --- Entry 0: standalone with earliest match position ---
+    # "愛" has "love" at position 0 (earliest of all)
+    assert results[0]["chinese"] == "愛"
 
-    # --- Entries 1-3: standalone, same views (2000), sorted by char length ---
-    # "愛" has 1 char, "心愛" has 2 chars, "女朋友" has 3 chars
-    assert results[1]["chinese"] == "愛"       # 1 char, def_len=14
-    assert results[2]["chinese"] == "心愛"     # 2 chars, def_len=18
-    assert results[3]["chinese"] == "女朋友"   # 3 chars, def_len=23
+    # --- Entries 1-2: same match position (11), higher views first ---
+    # "情人" has 3000 views > "女朋友" has 1000 views
+    assert results[1]["chinese"] == "情人"
+    assert results[2]["chinese"] == "女朋友"
 
-    # Within same views (2000) AND same chinese length (2): shorter definition first
-    # "心愛" (def_len=18) sorts before any other 2-char entry with def_len > 18 
+    # --- Entry 3: later match position (14) ---
+    # "心愛" has "love" at position 14
+    assert results[3]["chinese"] == "心愛"
+
+    # No definition-length check needed — it's been replaced by match position 
