@@ -231,14 +231,15 @@ def test_two_word_pipeline_advances_then_completes():
     assert cards[1].english_word == "goodbye"
 
 
-def test_lookup_translations_sorted_by_standalone_then_views_then_length():
+def test_lookup_translations_sorted_by_standalone_then_char_len_then_views():
     """lookup_translations sorts entries by:
-    1. Standalone match (exact word in definition first)
-    2. Views (descending — higher views = more popular first)
-    3. Chinese character length (ascending — shorter first)
-    4. Definition length (ascending — shorter first)
+    1. Standalone match (exact word in definition first, substring-only last)
+    2. Chinese character length (ascending — shorter/simpler first)
+    3. Views (descending — higher views = more popular first)
+    4. Match position (ascending — earlier in definition = more likely primary meaning)
 
-    This improves UX by showing the most relevant + popular + concise translations first.
+    This shows primary characters first, then popular entries, with
+    match position as a fine-tune tiebreaker.
     """
     import tempfile
     import sqlite3
@@ -251,19 +252,18 @@ def test_lookup_translations_sorted_by_standalone_then_views_then_length():
 
     # Fixture: entries that test all 4 sort criteria for the word "love"
     #
-    # Match positions for standalone "love":
-    #   愛      → pos 0  ("love; affection")
-    #   情人    → pos 11 ("...eart; love; paramour")
-    #   女朋友  → pos 11 ("...iend; love; lass")
-    #   心愛    → pos 14 ("...dear; love")
-    #   手套    → no standalone match ("glove" only substring)
+    #   愛      — 1 char, views=2000, match_pos=0
+    #   情人    — 2 chars, views=3000, match_pos=11
+    #   心愛    — 2 chars, views=1000, match_pos=14
+    #   女朋友  — 3 chars, views=1000, match_pos=11
+    #   手套    — substring-only ("glove"), not standalone
     #
-    # Expected sort order:
-    #   1. 愛   — standalone, pos 0, views=2000
-    #   2. 情人 — standalone, pos 11, views=3000 (tie-break: higher views)
-    #   3. 女朋友 — standalone, pos 11, views=1000 (same pos, lower views)
-    #   4. 心愛 — standalone, pos 14, views=1000
-    #   5. 手套 — substring-only ("glove"), 5000 views
+    # Expected order:
+    #   1. 愛   — 1 char (shortest), then views=2000
+    #   2. 情人 — 2 chars, views=3000 > 心愛's 1000
+    #   3. 心愛 — 2 chars, views=1000 < 情人's 3000
+    #   4. 女朋友 — 3 chars (longest)
+    #   5. 手套 — substring-only (last)
     entries = [
         ("心愛", "sam1 oi3", "beloved; dear; love", 1000),
         ("愛", "oi3", "love; affection", 2000),
@@ -318,17 +318,15 @@ def test_lookup_translations_sorted_by_standalone_then_views_then_length():
     # Entry 4: "手套" ("glove") is a substring-only match (no standalone "love")
     assert results[4]["chinese"] == "手套"
 
-    # --- Entry 0: standalone with earliest match position ---
-    # "愛" has "love" at position 0 (earliest of all)
+    # --- Entry 0: shortest chinese (1 char) ---
     assert results[0]["chinese"] == "愛"
 
-    # --- Entries 1-2: same match position (11), higher views first ---
-    # "情人" has 3000 views > "女朋友" has 1000 views
+    # --- Entries 1-2: 2 chars, higher views first ---
+    # "情人" has 3000 views > "心愛" has 1000 views
     assert results[1]["chinese"] == "情人"
-    assert results[2]["chinese"] == "女朋友"
+    assert results[2]["chinese"] == "心愛"
 
-    # --- Entry 3: later match position (14) ---
-    # "心愛" has "love" at position 14
-    assert results[3]["chinese"] == "心愛"
+    # --- Entry 3: longest chinese (3 chars) ---
+    assert results[3]["chinese"] == "女朋友"
 
-    # No definition-length check needed — it's been replaced by match position 
+    # Match position is a fine-tune tiebreaker (not tested here explicitly) 
